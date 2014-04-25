@@ -1,4 +1,5 @@
 import theano.tensor as T
+from theano.printing import Print
 from layers.layer import Layer
 
 class Cost(Layer):

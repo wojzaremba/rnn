@@ -1,16 +1,16 @@
 #!/usr/bin/python
 from model import Model
-from layers.layer import MockSource, FCL, BiasL, TanhL
+from layers.layer import MockSource, FCL, BiasL, TanhL, SigmL
 from layers.cost import SoftmaxC
 from layers.bundle import FCB, SoftmaxBC
 
 def main():
   model = Model()
-  classes = 5
-  model.set_source(MockSource, {'classes': classes}) \
-    .attach(FCL, {'out_len': 50, 'hiddens' : ['qqq']}) \
+  classes = 4
+  model.set_source(MockSource, {'classes': classes, 'batch_size': 1, 'n_t': 16}) \
+    .attach(FCL, {'out_len': 3, 'hiddens' : ['qqq']}) \
     .attach(BiasL, {}) \
-    .attach(TanhL, {}) \
+    .attach(SigmL, {}) \
     .add_hidden('qqq') \
     .attach(FCL, {'out_len': classes}) \
     .attach(BiasL, {}) \

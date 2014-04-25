@@ -3,6 +3,7 @@ import theano
 import theano.tensor as T
 from collections import OrderedDict
 import pdb
+from math import floor
 
 n = 50
 n_in = 5
@@ -37,13 +38,13 @@ updates = OrderedDict([(W, W - lr * gW),
                        (W_out, W_out - lr * gW_out)])
 fn = theano.function([h0, u, t, lr], [preds, error], updates=updates)
 
-for epoch in xrange(100):
+for epoch in xrange(10000):
   h0 = np.zeros((n,))
   u0 = np.zeros(n_t, dtype=np.int32)
   t = np.zeros(n_t, dtype=np.int32)
   for i in xrange(n_t):
-    u0[i] = (i + epoch) % n_in
-    t[i] = (i + epoch + 1) % n_in
+    u0[i] = floor((i + epoch) / 2) % n_in
+    t[i] = floor((i + epoch + 1) / 2) % n_in
 
   preds, error = fn(h0, u0, t, 0.001)
   print "epoch ", epoch

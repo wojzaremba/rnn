@@ -17,6 +17,14 @@ class Layer(object):
     else:
       assert model is not None
       self.model = model
+
+  def rec_final_init(self):
+    self.final_init()
+    for l in self.succ:
+      l.rec_final_init()
+
+  def final_init(self):
+    pass
  
   def add_hidden(self, name):
     if name not in self.model.hiddens:
@@ -70,18 +78,18 @@ class FCL(Layer):
     
     self.params = []
 
-    W = theano.shared(value=0.1 * np.random.randn(out_len, in_len),
+    W = theano.shared(value=0.01 * np.random.randn(out_len, in_len),
                              name='W', borrow=True)
     self.params.append(W)
     self.out_len = out_len
     self.out_shape = (self.in_shape[0], out_len)
-    self.further_init()
 
-
-  def further_init(self):
+  def final_init(self):
     for i in xrange(len(self.hiddens)):
-      W = theano.shared(value=0.01 * np.random.randn(self.out_len, 50),
-                             name='W_%s' % self.hiddens[i], borrow=True)
+      name = self.hiddens[i]
+      s = self.model.hiddens[name]['layer'].out_shape
+      W = theano.shared(value=0.1 * np.random.randn(self.out_len, s[1]),
+                             name='W_%s' % name, borrow=True)
       self.params.append(W)
 
   def fp(self, x, _):
@@ -129,11 +137,16 @@ class TanhL(ActL):
   def __init__(self, prev_layer=None):
     ActL.__init__(self, T.tanh, prev_layer)
 
+class SigmL(ActL):
+  def __init__(self, prev_layer=None):
+    sigmoid = lambda x: 1. / (1 + T.exp(-x))
+    ActL.__init__(self, sigmoid, prev_layer)
+
 class MockSource(Layer):
-  def __init__(self, classes, model):
+  def __init__(self, classes, batch_size, n_t, model):
     Layer.__init__(self, None, model)
-    self.batch_size = 100
-    self.n_t = 20
+    self.batch_size = batch_size
+    self.n_t = n_t
     self.classes = classes
     self.out_shape = (self.batch_size, self.classes)
     self.params = []
@@ -143,8 +156,9 @@ class MockSource(Layer):
     y = np.zeros(shape=(self.n_t, self.batch_size), dtype=np.int32)
     for b in xrange(self.batch_size):
       for i in xrange(self.n_t):
-        x[i, b] = floor((i + b + epoch) / 2) % self.classes
-        y[i, b] = floor((i + 1 + b + epoch) / 2) % self.classes
+        d = 2
+        x[i, b] = floor((i + b + epoch * self.n_t) / d) % self.classes
+        y[i, b] = floor((i + 1 + b + epoch * self.n_t) / d) % self.classes
     return x, y
 
   def fp(self, x, _):
