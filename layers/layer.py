@@ -1,6 +1,7 @@
 import numpy as np
 import theano
 import theano.tensor as T
+from theano.ifelse import ifelse
 from math import floor
 
 class Layer(object):
@@ -26,6 +27,10 @@ class Layer(object):
   def final_init(self):
     pass
  
+  def get_prev(self):
+    assert len(self.prev) == 1
+    return self.prev[0]
+
   def add_hidden(self, name):
     if name not in self.model.hiddens:
       self.model.hiddens[name] = {}
@@ -42,14 +47,22 @@ class Layer(object):
       print "Layer %s, input shape %s" % (layer.__name__, str(l.in_shape))
     return l
 
-  def get_updates(self, lr, cost):
+  def get_updates(self, lr, threshold,  cost):
     updates = []
+    grads = []
+    norms = []
     for l in self.succ:
-      updates += l.get_updates(lr, cost)
+      update, grad, norm = l.get_updates(lr, threshold, cost)
+      updates += update
+      grads += grad
+      norms += norm
     for p in self.params:
-      g = T.grad(cost=cost, wrt=p)
-      updates.append((p, p - lr * g))
-    return updates
+      grad = T.grad(cost=cost, wrt=p)
+      cgrad = ifelse(T.lt(l2(grad), threshold), grad, threshold * grad / l2(grad))
+      updates.append((p, p - lr * cgrad))
+      grads.append(l2(cgrad))
+      norms.append(l2(p))
+    return updates, grads, norms
 
   def get_costs(self, x, y):
     # Due to circular dependency.
@@ -75,10 +88,8 @@ class FCL(Layer):
     Layer.__init__(self, prev_layer)
     in_len = reduce(lambda x, y: x * y, list(self.in_shape)[1:])
     self.hiddens = hiddens
-    
     self.params = []
-
-    W = theano.shared(value=0.01 * np.random.randn(out_len, in_len),
+    W = theano.shared(value=0.001 * np.random.randn(out_len, in_len),
                              name='W', borrow=True)
     self.params.append(W)
     self.out_len = out_len
@@ -88,7 +99,7 @@ class FCL(Layer):
     for i in xrange(len(self.hiddens)):
       name = self.hiddens[i]
       s = self.model.hiddens[name]['layer'].out_shape
-      W = theano.shared(value=0.1 * np.random.randn(self.out_len, s[1]),
+      W = theano.shared(value=0.001 * np.random.randn(self.out_len, s[1]),
                              name='W_%s' % name, borrow=True)
       self.params.append(W)
 
@@ -99,7 +110,8 @@ class FCL(Layer):
       self.output = T.dot(x, self.params[0].T)
     for i in xrange(len(self.hiddens)):
       name = self.hiddens[i]
-      h = self.model.hiddens[name]['var']
+      #h = self.model.hiddens[name]['var']
+      h = self.model.hiddens[name]['prev_var']
       self.output += T.dot(h, self.params[i + 1].T)
 
 
@@ -143,10 +155,11 @@ class SigmL(ActL):
     ActL.__init__(self, sigmoid, prev_layer)
 
 class MockSource(Layer):
-  def __init__(self, classes, batch_size, n_t, model):
+  def __init__(self, freq, classes, batch_size, n_t, model):
     Layer.__init__(self, None, model)
     self.batch_size = batch_size
     self.n_t = n_t
+    self.freq = freq
     self.classes = classes
     self.out_shape = (self.batch_size, self.classes)
     self.params = []
@@ -156,11 +169,13 @@ class MockSource(Layer):
     y = np.zeros(shape=(self.n_t, self.batch_size), dtype=np.int32)
     for b in xrange(self.batch_size):
       for i in xrange(self.n_t):
-        d = 2
-        x[i, b] = floor((i + b + epoch * self.n_t) / d) % self.classes
-        y[i, b] = floor((i + 1 + b + epoch * self.n_t) / d) % self.classes
+        x[i, b] = floor((i + b + epoch * self.n_t) / self.freq) % self.classes
+        y[i, b] = floor((i + 1 + b + epoch * self.n_t) / self.freq) % self.classes
     return x, y
 
   def fp(self, x, _):
     self.output = x
 
+
+def l2(x):
+  return T.sqrt(T.sum(T.square(x)))

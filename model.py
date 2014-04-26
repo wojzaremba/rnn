@@ -5,8 +5,9 @@ import theano.tensor as T
 
 
 class Model(object):
-  def __init__(self, lr=0.01, n_epochs=50000):
+  def __init__(self, lr=0.1, threshold=1, n_epochs=2000):
     self.lr = lr
+    self.threshold = threshold
     self.n_epochs = n_epochs
     self.source = None
     self.hiddens = {}
@@ -17,6 +18,8 @@ class Model(object):
     return self.source
 
   def step(self, x_t, y_t, *hs):
+    for i, k in enumerate(self.hiddens.keys()):
+      self.hiddens[k]['prev_var'] = hs[i]
     costs = self.source.get_costs(x_t, y_t)
     loss_t = costs[0].output
     pred_t = costs[0].pred()
@@ -35,8 +38,9 @@ class Model(object):
                             outputs_info=outputs_info)
     loss = T.sum(losses)
     error = T.mean(errors)
-    updates = self.source.get_updates(self.lr, loss)
-    train_model = theano.function(hiddens + [x, y], [hids[-1, :, :], loss, preds, error], updates=updates)
+    updates, grads, norms = self.source.get_updates(self.lr, self.threshold, loss)
+    rets = [hids[-1, :], loss, preds, error] + grads + norms
+    train_model = theano.function(hiddens + [x, y], rets, updates=updates)
     return train_model
 
   def train(self):
@@ -44,13 +48,18 @@ class Model(object):
     train_model = self.build_model()
     print '... training the model'
     bs = self.source.batch_size
-    hids = [np.zeros(h['layer'].out_shape) for h in self.hiddens.values()]
+    hids = [np.ones(h['layer'].out_shape) for h in self.hiddens.values()]
     for e in xrange(self.n_epochs):
       x, y = self.source.get_data(e)
-      hids, loss, preds, error = train_model(*(hids + [x, y]))
+      rets = train_model(*(hids + [x, y]))
+      hids, loss, preds, error = rets[0], rets[1], rets[2], rets[3] 
+      rets = rets[4:]
+      grads = rets[0:len(rets) / 2]
+      norms = rets[len(rets) / 2 :]
       hids = [hids]
       print "x\n", x.transpose()
       print "y\n", y.transpose()
       print "preds\n", preds.transpose()
+      #print "grads\n", grads
+      #print "norms\n", norms
       print "e = %d, loss = %f, error = %f" % (e, loss, error)
-      print 
