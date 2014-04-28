@@ -28,6 +28,7 @@ class Layer(object):
       self.model = model
 
   def add_shared(self, name, size, init=RANDN):
+    np.random.seed(1)
     W = theano.shared(value=init(size), name=name, borrow=True)
     dW = theano.shared(value=ZEROS(size), name=name, borrow=True)
     self.params.append(W)
@@ -185,14 +186,14 @@ class Source(Layer):
     self.batch_size = batch_size
     self.unroll = unroll
 
-  def get_train_data(self, epoch):
+  def get_train_data(self, it, rollover=True):
     fail
 
-  def get_valid_data(self, epoch):
-    return self.get_train_data(epoch)
+  def get_valid_data(self, it, rollover=True):
+    return self.get_train_data(it, rollover)
 
-  def get_test_data(self, epoch):
-    return self.get_train_data(epoch)
+  def get_test_data(self, it, rollover=True):
+    return self.get_train_data(it, rollover)
 
   def fp(self, x, _):
     self.output = x
@@ -219,35 +220,51 @@ class ChrSource(Source):
     ret = cPickle.load(open(fname, "rb"))
     return ret
 
-  def get_data(self, data, epoch):
+  def get_data(self, data, it, rollover=True):
     bs = self.batch_size
-    x = data[:, epoch*bs:(epoch+1)*bs]
-    return self.split(x)
+    s = data.shape[1]
+    if rollover:
+      x = data[:, ((it*bs)%s):(((it+1)*bs)%s)]
+      epoch = floor((it*bs)/s)
+      return self.split(x), epoch
+    else:
+      x = data[:, it*bs:min((it+1)*bs, data.shape[1])]
+      last = (it+1)*bs >= data.shape[1]
+      return self.split(x), last
 
-  def get_train_data(self, epoch):
-    return self.get_data(self.training, epoch)
+  def get_train_data(self, it, rollover=True):
+    return self.get_data(self.training, it, rollover)
 
-  def get_valid_data(self, epoch):
-    return self.get_data(self.valid, epoch)
+  def get_valid_data(self, it, rollover=True):
+    return self.get_data(self.valid, it, rollover)
 
-  def get_test_data(self, epoch):
-    return self.get_data(self.test, epoch)
+  def get_test_data(self, it, rollover=True):
+    return self.get_data(self.test, it, rollover)
 
 class MockSource(Source):
   def __init__(self, model, batch_size, unroll, freq, classes):
     Source.__init__(self, model, batch_size, unroll)
     self.freq = freq
     self.classes = classes
-    self.out_shape = (self.batch_size, self.classes)
+    self.out_shape = (self.batch_size, 255)
+    np.random.seed(1)
 
-  def get_train_data(self, epoch):
-    start = random.randint(0, 10)
-    l = random.randint(0, 100) + 2 * self.unroll
+  def get_train_data(self, it, rollover=True):
+    start = np.random.randint(0, 10)
+    l = np.random.randint(0, 100) + 100 + 2 * self.unroll
     x = np.zeros(shape=(l, self.batch_size), dtype=np.int32)
     for b in xrange(self.batch_size):
       for i in xrange(l):
-        x[i, b] = floor((i + b + start) / self.freq) % self.classes
-    return self.split(x)
+        x[i, b] = ord('a') + floor((i + b + start) / self.freq) % self.classes
+    return self.split(x), floor(it * self.batch_size / 200)
+
+  def get_test_data(self, it, rollover=True):
+    data, epoch = self.get_train_data(it, rollover)
+    if rollover:
+      return data, epoch
+    else:
+      last = it > 10
+      return data, last
 
 def l2(x):
   return T.sqrt(T.sum(T.square(x)))

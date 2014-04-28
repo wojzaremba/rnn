@@ -1,5 +1,4 @@
 import numpy as np
-from sortedcontainers import SortedSet
 import cPickle
 
 sets = ['train', 'valid', 'test']
@@ -10,21 +9,21 @@ for name in sets:
 
   print len(text)
   m = 0
-  s = SortedSet()
+  lens = []
   for i in xrange(len(text)):
-    m = max(m, len(text[i]))
-    s = s.union(SortedSet(text[i]))
+    lens.append(len(text[i]))
 
-  cmap = {}
-  for i in xrange(len(s)):
-    cmap[s[i]] = i
+  import ipdb
+  ipdb.set_trace()
+  exit(0)
+  m = max(m, len(text[i]))
 
-  x = np.zeros((m / 2 + 1, len(text) - 1), dtype=np.uint8)
+  x = 255 * np.ones((m / 2 + 1, len(text) - 1), dtype=np.uint8)
   for i in xrange(len(text) - 1):
     for j in xrange(len(text[i]) / 2):
       c = text[i][2 * j + 1]
-      x[j, i] = cmap[c]
+      x[j, i] = ord(c)
   print np.sum(x, axis=0)
-  assert (np.sum(x, axis=0) != 0).all()
+  assert (np.mean(x, axis=0) != 255).all()
 
   cPickle.dump(x, open(fname + ".pkl", "wb" ))

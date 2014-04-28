@@ -8,11 +8,19 @@ import cPickle
 import time
 
 class Model(object):
-  def __init__(self, name, lr=0.1, momentum=0.99, threshold=1, n_epochs=10000):
+  def __init__(self, name, lr=0.1, momentum=0.5, threshold=1, n_epochs=2):
+    print "_" * 100
+    print "Creating model %s lr=%f, momentum=%f, n_epochs=%d" % \
+      (name, lr, momentum, n_epochs)
     self.name = name
-    self.sgd_params = (lr, momentum, threshold)
+    self.lr = T.scalar('lr')
+    self.lr_val = lr
+    self.sgd_params = (self.lr, momentum, threshold)
     self.n_epochs = n_epochs
     self.source = None
+    self.train_model = None
+    self.test_model = None
+    self.start_it = 0
     self.hiddens = {}
 
   def set_source(self, source, params):
@@ -43,7 +51,7 @@ class Model(object):
     error = T.mean(errors)
     updates, grads, norms = self.source.get_updates(loss, self.sgd_params)
     rets = [hids[-1, :], loss, probs, error] + grads + norms
-    train_model = theano.function(hiddens + [x, y], rets, updates=updates)
+    train_model = theano.function(hiddens + [self.lr, x, y], rets, updates=updates)
     test_model = theano.function(hiddens + [x, y], rets)
     return train_model, test_model
 
@@ -80,22 +88,24 @@ class Model(object):
     print "Saving weights %s" % (fname)
     cPickle.dump(self.source.dump(), f)
 
-  def gen(self, text=None):
+  def init(self, ask=True):
     self.source.rec_final_init()
-    _, test_model = self.build_model()
-    start_epoch = self.load(False)
-    if start_epoch <= 0:
+    self.train_model, self.test_model = self.build_model()
+    self.start_it = self.load(ask)
+
+  def gen(self, text=None):
+    if self.start_it <= 0:
       print "Model not trained. Bye bye.\n"
       return
     if text is None:
       text = raw_input("Choose beginning of sequence:")
     text = text.lower()
     print "Input sequence: %s" % text
-    x = np.array([[ord(c) - ord('a') for c in text]], dtype=np.int32).transpose()
+    x = np.array([[ord(c) for c in text]], dtype=np.int32).transpose()
     y = np.zeros((len(x), 1), dtype=np.int32)
-    hids_zero = [np.zeros((1, h['layer'].out_shape[1])) for h in self.hiddens.values()]
-    hids = hids_zero
-    rets = test_model(*(hids + [x, y]))
+    hids = self.get_init_hids([[x]])
+    rets = self.test_model(*(hids + [x, y]))
+    np.random.seed(1)
     for i in xrange(100):
       hids, loss, probs, error = rets[0:4]
       hids = [hids]
@@ -109,26 +119,26 @@ class Model(object):
         if u < p[i]:
           idx = i - 1
           break
-      text += chr(idx + ord('a'))
+      text += chr(idx)
       x = np.array([[idx]], dtype=np.int32)
       zero = np.array([[0]], dtype=np.int32)
-      rets = test_model(*(hids + [x, zero]))
+      rets = self.test_model(*(hids + [x, zero]))
     print "Generated text : ", text
    
   def train(self):
-    self.source.rec_final_init()
-    train_model, test_model = self.build_model()
-    start_epoch = self.load()
     print '... training the model'
     bs = self.source.batch_size
-    hids_zero = [np.zeros(h['layer'].out_shape) for h in self.hiddens.values()]
-    save_freq = 100
     start = time.time()
-    for epoch in range(start_epoch, self.n_epochs):
-      hids = hids_zero
-      data = self.source.get_train_data(epoch)
+    last_save = start
+    it = self.start_it
+    while True:  
+      data, epoch = self.source.get_train_data(it)
+      lr = self.lr_val / 2**epoch
+      if epoch >= self.n_epochs:
+        break
+      hids = self.get_init_hids(data)
       for x, y in data:
-        rets = train_model(*(hids + [x, y]))
+        rets = self.train_model(*(hids + [lr, x, y]))
         hids, loss, probs, error = rets[0:4]
         hids = [hids]
       rets = rets[4:]
@@ -139,26 +149,36 @@ class Model(object):
       #print "probs\n", probs.transpose()
       #print "grads\n", grads
       #print "norms\n", norms
-      print "epoch = %d, loss = %f, error = %f, since beginning = %.1f min." % (epoch, loss, error, (time.time() - start) / 60)
-      if epoch % save_freq == 0 and epoch > 0:
-        self.save(epoch)
-    self.save(self.n_epochs - 1)
+      print "epoch = %d, it = %d, loss = %f, error = %f, lr=%f, since beginning = %.1f min." % (epoch, it, loss, error, lr, (time.time() - start) / 60)
+      if time.time() - last_save > 60 * 10:
+        last_save = time.time()
+        self.save(it)
+      it += 1
+    self.save(it - 1)
     print "Training finished !"
-    # Testing.
+
+  def get_init_hids(self, data):
+    bs = data[0][0].shape[1]
+    hids = [np.ones((bs, h['layer'].out_shape[1])) for h in self.hiddens.values()]
+    return hids
+
+  def test(self,):
     print "\nTesting"
     print "_" * 100
     losses = 0
     count = 0
-    for epoch in xrange(10):
-      data = self.source.get_test_data(epoch)
-      hids = hids_zero
+    last = False
+    it = 0
+    while not last:
+      data, last = self.source.get_test_data(it, False)
+      it += 1
+      hids = self.get_init_hids(data)
       for x, y in data:
         count += x.shape[0]
-        rets = test_model(*(hids + [x, y]))
+        rets = self.test_model(*(hids + [x, y]))
         hids, loss, probs, error = rets[0:4]
         losses += loss * x.shape[0]
         hids = [hids]
-      print "e = %d, loss = %f, error = %f" % (epoch, loss, error)
+      print "it = %d, loss = %f, error = %f" % (it, loss, error)
     losses = log(exp(1), 2) * losses / count
-
-    print "perplexity = %f" % np.power(losses, 2)
+    print "perplexity = %f\n" % 2 ** losses
