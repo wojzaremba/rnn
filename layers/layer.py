@@ -7,8 +7,9 @@ import config
 import cPickle
 import random
 
-RANDN = lambda s: 0.001 * np.random.random(s)
-ZEROS = np.zeros
+floatX = theano.config.floatX
+RANDN = lambda s: 0.001 * np.array(np.random.random(s), dtype=floatX)
+ZEROS = lambda s: np.zeros(s, dtype=floatX)
 
 class Layer(object):
   def __init__(self, prev_layer, model=None):

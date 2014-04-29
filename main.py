@@ -6,8 +6,6 @@ from layers.bundle import FCB, SoftmaxBC
 import sys
 
 # XXX: Create tests !!! Itegrate provious testing env.
-# XXX: Account in perplexity for loss before end of sentence.
-# XXX: Get similar size text in every minibatch.
 
 def mock(model):
   model.n_epochs = 3
@@ -25,7 +23,7 @@ def mock(model):
 def pennchr(model):
   model.n_epochs = 1
   model.set_source(ChrSource, {'name': 'pennchr', 'unroll': 10}) \
-    .attach(FCL, {'out_len': 200, 'hiddens' : ['qqq']}) \
+    .attach(FCL, {'out_len': 1000, 'hiddens' : ['qqq']}) \
     .attach(BiasL, {}) \
     .attach(SigmL, {}) \
     .add_hidden('qqq') \
