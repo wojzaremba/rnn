@@ -2,7 +2,7 @@ import numpy as np
 import theano
 import theano.tensor as T
 from theano.ifelse import ifelse
-from math import floor
+from math import floor, ceil
 import config
 import cPickle
 import random
@@ -200,7 +200,7 @@ class Source(Layer):
   def split(self, x):
     y = x[1:, :]
     x = x[0:-1, :]
-    s = x.shape[0] / self.unroll
+    s = int(ceil(float(x.shape[0]) / float(self.unroll)))
     x = np.array_split(x, s)
     y = np.array_split(y, s)
     return zip(x, y)
