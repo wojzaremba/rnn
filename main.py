@@ -23,13 +23,13 @@ def mock(model):
   return model
 
 def pennchr(model):
-  model.n_epochs = 100
-  model.set_source(ChrSource, {'name': 'pennchr', 'batch_size': 10, 'unroll': 10}) \
+  model.n_epochs = 1
+  model.set_source(ChrSource, {'name': 'pennchr', 'unroll': 10}) \
     .attach(FCL, {'out_len': 200, 'hiddens' : ['qqq']}) \
     .attach(BiasL, {}) \
     .attach(SigmL, {}) \
     .add_hidden('qqq') \
-    .attach(FCL, {'out_len': 255}) \
+    .attach(FCL, {'out_len': 256}) \
     .attach(BiasL, {}) \
     .attach(SoftmaxC, {})
   return model

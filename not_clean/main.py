@@ -1,5 +1,7 @@
+#!/usr/bin/python
 import numpy as np
 import cPickle
+from math import ceil
 
 sets = ['train', 'valid', 'test']
 for name in sets:
@@ -13,17 +15,17 @@ for name in sets:
   for i in xrange(len(text)):
     lens.append(len(text[i]))
 
-  import ipdb
-  ipdb.set_trace()
-  exit(0)
-  m = max(m, len(text[i]))
+  order = sorted(zip(lens, xrange(len(lens))))
+  data = []
+  order = order[1:]
+  bs = 10
+  for mb in xrange(int(ceil(len(text) / bs))):
+    subord = order[mb*bs:min((mb+1)*bs, len(text))]
+    x = 255 * np.ones((subord[-1][0] / 2, len(subord)), dtype=np.uint8)
+    for i in xrange(len(subord)):
+      for j in xrange(subord[i][0] / 2):
+        c = text[subord[i][1]][2 * j + 1]
+        x[j, i] = ord(c)
+    data.append(x)
 
-  x = 255 * np.ones((m / 2 + 1, len(text) - 1), dtype=np.uint8)
-  for i in xrange(len(text) - 1):
-    for j in xrange(len(text[i]) / 2):
-      c = text[i][2 * j + 1]
-      x[j, i] = ord(c)
-  print np.sum(x, axis=0)
-  assert (np.mean(x, axis=0) != 255).all()
-
-  cPickle.dump(x, open(fname + ".pkl", "wb" ))
+  cPickle.dump(data, open(fname + ".pkl", "wb" ))

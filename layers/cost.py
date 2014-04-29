@@ -1,6 +1,7 @@
 import theano.tensor as T
 from theano.printing import Print
 from layers.layer import Layer
+from theano.ifelse import ifelse
 
 class Cost(Layer):
   def __init__(self, prev_layer):
@@ -9,18 +10,9 @@ class Cost(Layer):
     self.output = None
     self.prob = None
 
-  def pred(self):
-    return T.argmax(self.prob, axis=1)
-
-  def acc(self, y):
-    pred = self.pred()
-    if y.ndim != pred.ndim:
-      raise TypeError('y should have the same shape as self.pred()',
-        ('y', y.type, 'pred', pred.type))
-    if y.dtype.startswith('int'):
-      return T.mean(T.neq(pred, y))
-    else:
-      raise NotImplementedError()
+  def error(self, y):
+    pred =  T.argmax(self.prob, axis=1)
+    return T.sum((T.neq(pred, y)) * T.neq(y, 255))
 
 class SoftmaxC(Cost):
   def __init__(self, prev_layer=None):
@@ -29,5 +21,6 @@ class SoftmaxC(Cost):
 
   def fp(self, x, y):
     self.prob = T.nnet.softmax(x)
-    self.output = -T.mean(T.log(self.prob)[T.arange(y.shape[0]), y])
+    output = -T.mean(T.log(self.prob)[T.arange(y.shape[0]), y])
+    self.output = T.sum(T.neq(y, 255) * output)
 

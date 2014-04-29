@@ -34,7 +34,7 @@ class Model(object):
     costs = self.source.get_costs(x_t, y_t)
     loss_t = costs[0].output
     prob_t = costs[0].prob
-    error_t = costs[0].acc(y_t)
+    error_t = costs[0].error(y_t)
     ret = [loss_t, prob_t, error_t]
     ret = [h['layer'].output for h in self.hiddens.values()] + ret
     return ret
@@ -48,7 +48,7 @@ class Model(object):
     [hids, losses, probs, errors], _ = theano.scan(self.step, sequences=[x, y], 
                             outputs_info=outputs_info)
     loss = T.sum(losses)
-    error = T.mean(errors)
+    error = T.cast(T.sum(errors), 'float32') / T.cast(T.sum(T.neq(y, 255)), 'float32')
     updates, grads, norms = self.source.get_updates(loss, self.sgd_params)
     rets = [hids[-1, :], loss, probs, error] + grads + norms
     train_model = theano.function(hiddens + [self.lr, x, y], rets, updates=updates)
@@ -133,7 +133,7 @@ class Model(object):
     it = self.start_it
     while True:  
       data, epoch = self.source.get_train_data(it)
-      lr = self.lr_val / 2**epoch
+      lr = self.lr_val / (2**epoch * self.source.batch_size)
       if epoch >= self.n_epochs:
         break
       hids = self.get_init_hids(data)
@@ -149,7 +149,7 @@ class Model(object):
       #print "probs\n", probs.transpose()
       #print "grads\n", grads
       #print "norms\n", norms
-      print "epoch = %d, it = %d, loss = %f, error = %f, lr=%f, since beginning = %.1f min." % (epoch, it, loss, error, lr, (time.time() - start) / 60)
+      print "epoch=%d, it=%d, loss=%f, error=%f, lr=%f, since beginning=%.1f min." % (epoch, it, loss, error, lr, (time.time() - start) / 60)
       if time.time() - last_save > 60 * 10:
         last_save = time.time()
         self.save(it)
@@ -174,11 +174,11 @@ class Model(object):
       it += 1
       hids = self.get_init_hids(data)
       for x, y in data:
-        count += x.shape[0]
+        count += np.sum(y != 255)
         rets = self.test_model(*(hids + [x, y]))
         hids, loss, probs, error = rets[0:4]
-        losses += loss * x.shape[0]
+        losses += loss
         hids = [hids]
-      print "it = %d, loss = %f, error = %f" % (it, loss, error)
+      print "it=%d, loss=%f, error=%f" % (it, loss, error)
     losses = log(exp(1), 2) * losses / count
     print "perplexity = %f\n" % 2 ** losses

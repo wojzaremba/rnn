@@ -181,9 +181,8 @@ class SigmL(ActL):
     ActL.__init__(self, sigmoid, prev_layer)
 
 class Source(Layer):
-  def __init__(self, model, batch_size, unroll):
+  def __init__(self, model, unroll):
     Layer.__init__(self, None, model)
-    self.batch_size = batch_size
     self.unroll = unroll
 
   def get_train_data(self, it, rollover=True):
@@ -199,21 +198,23 @@ class Source(Layer):
     self.output = x
 
   def split(self, x):
-    y = x[1:-1, :]
-    x = x[0:-2, :]
+    y = x[1:, :]
+    x = x[0:-1, :]
     s = x.shape[0] / self.unroll
     x = np.array_split(x, s)
     y = np.array_split(y, s)
     return zip(x, y)
 
 class ChrSource(Source):
-  def __init__(self, model, batch_size, unroll, name):
-    Source.__init__(self, model, batch_size, unroll)
+  def __init__(self, model, unroll, name):
+    Source.__init__(self, model, unroll)
     self.name = name
-    self.out_shape = (self.batch_size, 51)
+    self.batch_size = None
     self.training = self.read_file("train.pkl")
     self.valid = self.read_file("valid.pkl")
     self.test = self.read_file("test.pkl")
+    self.batch_size = self.training[0].shape[1]
+    self.out_shape = (self.batch_size, 256)
     
   def read_file(self, filename):
     fname = config.DATA_DIR + self.name + "/" + filename
@@ -222,13 +223,14 @@ class ChrSource(Source):
 
   def get_data(self, data, it, rollover=True):
     bs = self.batch_size
-    s = data.shape[1]
+    s = len(data)
+    epoch = int(floor(it/s))
+    np.random.seed(epoch)
+    it = np.random.permutation(s)[it]
+    x = data[it]
     if rollover:
-      x = data[:, ((it*bs)%s):(((it+1)*bs)%s)]
-      epoch = floor((it*bs)/s)
       return self.split(x), epoch
     else:
-      x = data[:, it*bs:min((it+1)*bs, data.shape[1])]
       last = (it+1)*bs >= data.shape[1]
       return self.split(x), last
 
@@ -243,10 +245,11 @@ class ChrSource(Source):
 
 class MockSource(Source):
   def __init__(self, model, batch_size, unroll, freq, classes):
-    Source.__init__(self, model, batch_size, unroll)
+    Source.__init__(self, model, unroll)
+    self.batch_size = batch_size
     self.freq = freq
     self.classes = classes
-    self.out_shape = (self.batch_size, 255)
+    self.out_shape = (self.batch_size, 256)
     np.random.seed(1)
 
   def get_train_data(self, it, rollover=True):
