@@ -7,8 +7,9 @@ import os
 import cPickle
 import time
 
+floatX = theano.config.floatX
 class Model(object):
-  def __init__(self, name, lr=0.1, momentum=0.5, threshold=1, n_epochs=2):
+  def __init__(self, name, lr=1, momentum=0.5, threshold=1, n_epochs=2):
     print "_" * 100
     print "Creating model %s lr=%f, momentum=%f, n_epochs=%d" % \
       (name, lr, momentum, n_epochs)
@@ -159,7 +160,7 @@ class Model(object):
 
   def get_init_hids(self, data):
     bs = data[0][0].shape[1]
-    hids = [np.ones((bs, h['layer'].out_shape[1])) for h in self.hiddens.values()]
+    hids = [np.ones((bs, h['layer'].out_shape[1]), dtype=floatX) for h in self.hiddens.values()]
     return hids
 
   def test(self,):

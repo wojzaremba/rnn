@@ -15,7 +15,7 @@ def mock(model):
     .attach(BiasL, {}) \
     .attach(SigmL, {}) \
     .add_hidden('qqq') \
-    .attach(FCL, {'out_len': 255}) \
+    .attach(FCL, {'out_len': 256}) \
     .attach(BiasL, {}) \
     .attach(SoftmaxC, {})
   return model
