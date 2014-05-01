@@ -25,6 +25,8 @@ for name in sets:
     for i in xrange(len(subord)):
       for j in xrange(subord[i][0] / 2):
         c = text[subord[i][1]][2 * j + 1]
+        if c == '_':
+          c = ' '
         x[j, i] = ord(c)
     data.append(x)
 

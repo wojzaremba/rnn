@@ -20,10 +20,10 @@ def mock(model):
     .attach(SoftmaxC, {})
   return model
 
-def pennchr(model):
+def pennchr(model, hid=200):
   model.n_epochs = 1
   model.set_source(ChrSource, {'name': 'pennchr', 'unroll': 10}) \
-    .attach(FCL, {'out_len': 1000, 'hiddens' : ['qqq']}) \
+    .attach(FCL, {'out_len': hid, 'hiddens' : ['qqq']}) \
     .attach(BiasL, {}) \
     .attach(SigmL, {}) \
     .add_hidden('qqq') \
@@ -31,6 +31,9 @@ def pennchr(model):
     .attach(BiasL, {}) \
     .attach(SoftmaxC, {})
   return model
+
+def pennchr1000(model):
+  return pennchr(model, 1000)
 
 def main():
   fun = 'mock'

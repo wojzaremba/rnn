@@ -10,6 +10,7 @@ import random
 floatX = theano.config.floatX
 RANDN = lambda s: 0.001 * np.array(np.random.random(s), dtype=floatX)
 ZEROS = lambda s: np.zeros(s, dtype=floatX)
+ONES = lambda s: np.ones(s, dtype=floatX)
 
 class Layer(object):
   def __init__(self, prev_layer, model=None):
@@ -51,7 +52,8 @@ class Layer(object):
     if name not in self.model.hiddens:
       self.model.hiddens[name] = {}
     self.model.hiddens[name]['layer'] = self
-    self.model.hiddens[name]['var'] = T.matrix(name)
+    h = theano.shared(value=ZEROS(self.out_shape), name=name, borrow=True)
+    self.model.hiddens[name]['init'] = h
     return self
 
   def attach(self, layer, params):
@@ -66,22 +68,16 @@ class Layer(object):
   def get_updates(self, cost, argv):
     lr, momentum, threshold = argv
     updates = []
-    grads = []
-    norms = []
     for l in self.succ:
-      update, grad, norm = l.get_updates(cost, argv)
+      update = l.get_updates(cost, argv)
       updates += update
-      grads += grad
-      norms += norm
     for p, dp in zip(self.params, self.dparams):
       grad = T.grad(cost=cost, wrt=p)
       dp_tmp = momentum * dp + (1 - momentum) * grad
       dp_tmp = ifelse(T.lt(l2(dp_tmp), threshold), dp_tmp, threshold * dp_tmp / l2(dp_tmp))
       updates.append((dp, dp_tmp))
       updates.append((p, p - lr * dp_tmp))
-      grads.append(l2(dp_tmp))
-      norms.append(l2(p))
-    return updates, grads, norms
+    return updates
 
   def get_costs(self, x, y):
     # Due to circular dependency.
@@ -145,7 +141,7 @@ class FCL(Layer):
       self.output = T.dot(x, self.params[0].T)
     for i in xrange(len(self.hiddens)):
       name = self.hiddens[i]
-      h = self.model.hiddens[name]['prev_var']
+      h = self.model.hiddens[name]['val']
       self.output += T.dot(h, self.params[i + 1].T)
 
 

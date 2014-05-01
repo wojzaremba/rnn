@@ -1,5 +1,4 @@
 import theano.tensor as T
-from theano.printing import Print
 from layers.layer import Layer
 from theano.ifelse import ifelse
 
