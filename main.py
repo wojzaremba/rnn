@@ -21,7 +21,7 @@ def mock(model):
   return model
 
 def pennchr(model, hid=200):
-  model.n_epochs = 1
+  model.n_epochs = 1000
   model.set_source(ChrSource, {'name': 'pennchr', 'unroll': 10}) \
     .attach(FCL, {'out_len': hid, 'hiddens' : ['qqq']}) \
     .attach(BiasL, {}) \

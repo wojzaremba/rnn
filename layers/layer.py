@@ -223,7 +223,7 @@ class ChrSource(Source):
     s = len(data)
     epoch = int(floor(it/s))
     np.random.seed(epoch)
-    it = np.random.permutation(s)[it]
+    it = np.random.permutation(s)[it % s]
     x = data[it]
     if rollover:
       return self.split(x), epoch
