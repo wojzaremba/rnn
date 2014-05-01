@@ -49,7 +49,7 @@ def pennchr600(source):
   return pennchr(source, 600)
 
 def main():
-  options = {1: ('mock_data', 'mock'), 2:('penn_data', 'pennchr600'), 3:('penn_data', 'pennchr1000')}
+  options = {'1': ('mock_data', 'mock'), '2':('penn_data', 'pennchr600'), '3':('penn_data', 'pennchr1000')}
   option = 1
   if len(sys.argv) > 1:
     option = sys.argv[1]
