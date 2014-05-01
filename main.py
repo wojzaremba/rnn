@@ -14,12 +14,12 @@ def penn_data():
 
 def mock_data():
   source = MockSource
+  classes = 4
   params = {'freq': 2, 'classes': classes, 'batch_size': 10, 'unroll': 5}
   return source, params
 
 def mock(source):
   model = Model(name="mock", n_epochs=1)
-  classes = 4
   model.set_source(source[0], source[1]) \
     .attach(FCL, {'out_len': 50, 'hiddens' : ['qqq']}) \
     .attach(BiasL, {}) \
@@ -30,8 +30,8 @@ def mock(source):
     .attach(SoftmaxC, {})
   return model
 
-def pennchr(source, hid=200):
-  model = Model(name="pennchr%d" % hid,  n_epochs=10)
+def pennchr(source, hid=600):
+  model = Model(name="pennchr%d" % hid, n_epochs=10, momentum=0.)
   model.set_source(source[0], source[1]) \
     .attach(FCL, {'out_len': hid, 'hiddens' : ['qqq']}) \
     .attach(BiasL, {}) \
@@ -50,7 +50,7 @@ def main():
   option = 1
   if len(sys.argv) > 1:
     option = sys.argv[1]
-  source_name, fun = options(option)
+  source_name, fun = options[option]
   source = eval(source_name + '()')
   model = eval(fun + '(source)')
   model.name = fun

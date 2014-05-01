@@ -52,7 +52,7 @@ class Layer(object):
     if name not in self.model.hiddens:
       self.model.hiddens[name] = {}
     self.model.hiddens[name]['layer'] = self
-    h = theano.shared(value=ZEROS(self.out_shape), name=name, borrow=False)
+    h = theano.shared(value=ONES(self.out_shape), name=name, borrow=False)
     self.model.hiddens[name]['init'] = h
     return self
 
@@ -73,7 +73,8 @@ class Layer(object):
       updates += update
     for p, dp in zip(self.params, self.dparams):
       grad = T.grad(cost=cost, wrt=p)
-      grad = momentum * dp + (1 - momentum) * grad
+      if momentum > 0:
+        grad = momentum * dp + (1 - momentum) * grad
       grad *= ifelse(T.lt(l2(grad), threshold), 1., threshold / l2(grad))
       updates.append((dp, grad))
       updates.append((p, p - lr * grad))
@@ -182,14 +183,14 @@ class Source(Layer):
     Layer.__init__(self, None, model)
     self.unroll = unroll
 
-  def get_train_data(self, it, rollover=True):
+  def get_train_data(self, it):
     fail
 
-  def get_valid_data(self, it, rollover=True):
-    return self.get_train_data(it, rollover)
+  def get_valid_data(self, it):
+    return self.get_train_data(it) 
 
-  def get_test_data(self, it, rollover=True):
-    return self.get_train_data(it, rollover)
+  def get_test_data(self, it):
+    return self.get_train_data(it)
 
   def fp(self, x, _):
     self.output = x
@@ -218,27 +219,23 @@ class ChrSource(Source):
     ret = cPickle.load(open(fname, "rb"))
     return ret
 
-  def get_data(self, data, it, rollover=True):
+  def get_data(self, data, it):
     bs = self.batch_size
     s = len(data)
     epoch = int(floor(it/s))
     np.random.seed(epoch)
     it_perm = np.random.permutation(s)[it % s]
     x = data[it_perm]
-    if rollover:
-      return self.split(x), epoch
-    else:
-      last = it >= len(data) - 1
-      return self.split(x), last
+    return self.split(x), epoch, it % len(data) == len(data) - 1
 
-  def get_train_data(self, it, rollover=True):
-    return self.get_data(self.training, it, rollover)
+  def get_train_data(self, it):
+    return self.get_data(self.training, it)
 
-  def get_valid_data(self, it, rollover=True):
-    return self.get_data(self.valid, it, rollover)
+  def get_valid_data(self, it):
+    return self.get_data(self.valid, it)
 
-  def get_test_data(self, it, rollover=True):
-    return self.get_data(self.test, it, rollover)
+  def get_test_data(self, it):
+    return self.get_data(self.test, it)
 
 class MockSource(Source):
   def __init__(self, model, batch_size, unroll, freq, classes):
@@ -249,22 +246,18 @@ class MockSource(Source):
     self.out_shape = (self.batch_size, 256)
     np.random.seed(1)
 
-  def get_train_data(self, it, rollover=True):
+  def get_train_data(self, it):
     start = np.random.randint(0, 10)
     l = np.random.randint(0, 100) + 100 + 2 * self.unroll
     x = np.zeros(shape=(l, self.batch_size), dtype=np.int32)
     for b in xrange(self.batch_size):
       for i in xrange(l):
         x[i, b] = ord('a') + floor((i + b + start) / self.freq) % self.classes
-    return self.split(x), floor(it * self.batch_size / 200)
+    return self.split(x), floor(it / 20.), it % 20 == 19
 
-  def get_test_data(self, it, rollover=True):
-    data, epoch = self.get_train_data(it, rollover)
-    if rollover:
-      return data, epoch
-    else:
-      last = it > 2
-      return data, last
+  def get_test_data(self, it):
+    data, epoch, _ = self.get_train_data(it)
+    return data, epoch, it % 5 == 4
     
 class EmptySource(Source):
   def __init__(self, model, batch_size, in_shape=256):
@@ -272,10 +265,10 @@ class EmptySource(Source):
     self.batch_size = batch_size
     self.out_shape = (self.batch_size, in_shape)
 
-  def get_train_data(self, it, rollover=True):
+  def get_train_data(self, it):
     fail
 
-  def get_test_data(self, it, rollover=True):
+  def get_test_data(self, it):
     fail
 
 def l2(x):

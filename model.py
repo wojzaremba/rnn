@@ -2,6 +2,7 @@ import numpy as np
 from math import exp, log
 import theano
 import theano.tensor as T
+from theano.ifelse import ifelse
 import conf
 import os
 import cPickle
@@ -10,7 +11,7 @@ from layers.layer import ONES
 
 floatX = theano.config.floatX
 class Model(object):
-  def __init__(self, name, lr=1, momentum=0.5, threshold=1, n_epochs=2):
+  def __init__(self, name, lr=1, momentum=0.5, threshold=15, n_epochs=2):
     print "_" * 100
     print "Creating model %s lr=%f, momentum=%f, n_epochs=%d" % \
       (name, lr, momentum, n_epochs)
@@ -41,20 +42,18 @@ class Model(object):
     ret = ret + [h['layer'].output for h in self.hiddens.values()] 
     return ret
 
-  # XXX: Why my scan computes output of entire network ??????
   def build_model(self):
     print '\n... building the model'
     x = T.imatrix('x')
     y = T.imatrix('y')
     reset = T.scalar('reset')
-    #hiddens = [dict(initial=h['init'] * reset, taps=0) for h in self.hiddens.values()]
-    hiddens = [h['init'] * reset for h in self.hiddens.values()]
+    hiddens = []
+    for h in self.hiddens.values():
+      h_init = ifelse(T.eq(reset, 0), h['init'], T.ones_like(h['init']))
+      hiddens.append(h_init)
     outputs_info = [None] * 3 + hiddens
     [losses, probs, errors, hids], updates = theano.scan(self.step, sequences=[x, y], 
                                                          outputs_info=outputs_info)
-    # XXXX: return hids.
-    #hids, updates = theano.scan(self.step, sequences=[x, y], 
-    #                            outputs_info=outputs_info)
     loss = losses.sum()
     error = errors.sum() / T.cast((T.neq(y, 255).sum()), floatX)
     hidden_updates = [(h['init'], hids[-1]) for h in self.hiddens.values()]
@@ -139,13 +138,14 @@ class Model(object):
     start = time.time()
     last_save = start
     it = self.start_it
+    perplexity = float('Inf')
+    lr = self.lr_val / self.source.batch_size
     while True:  
-      data, epoch = self.source.get_train_data(it)
-      lr = self.lr_val / (2**epoch * self.source.batch_size)
+      data, epoch, last = self.source.get_train_data(it)
       if epoch >= self.n_epochs:
         break
       for i, (x, y) in enumerate(data):
-        reset = i != 0
+        reset = i == 0
         rets = self.train_model(x, y, reset, lr)
         loss, probs, error = rets[0:3]
       print "epoch=%d, it=%d, loss=%f, error=%f, lr=%f, since beginning=%.1f min." % (epoch, it, loss, error, lr, (time.time() - start) / 60)
@@ -153,26 +153,37 @@ class Model(object):
         last_save = time.time()
         self.save(it)
       it += 1
+      if last:
+        new_perplexity = self.test(self.source.get_valid_data, False)
+        if new_perplexity > perplexity:
+          lr /= 2
+        perplexity = min(perplexity, new_perplexity)
     self.save(it - 1)
     print "Training finished !"
 
-  def test(self):
-    print "\nTesting"
-    print "_" * 100
+  def test(self, data_source=None, printout=True):
+    if data_source == None:
+      data_source = self.source.get_test_data
+    if printout:
+      print "\nTesting"
+      print "_" * 100
     losses = 0
     count = 0
     last = False
     it = 0
     while not last:
-      data, last = self.source.get_test_data(it, False)
+      data, _, last = data_source(it)
       it += 1
       for i, (x, y) in enumerate(data):
-        reset = i != 0
+        reset = i == 0
         count += np.sum(y != 255)
         rets = self.test_model(x, y, reset)
         loss, _, error = rets[0:3]
         losses += loss
-      print "it=%d, loss=%f, error=%f" % (it, loss, error)
+      if printout:
+        print "it=%d, loss=%f, error=%f" % (it, loss, error)
     losses = log(exp(1), 2) * losses / count
-    print "perplexity = %f\n" % 2 ** losses
+    perplexity = 2 ** losses
+    print "perplexity = %f\n" % perplexity
+    return perplexity
 
