@@ -31,8 +31,8 @@ class Layer(object):
 
   def add_shared(self, name, size, init=RANDN):
     np.random.seed(1)
-    W = theano.shared(value=init(size), name=name, borrow=True)
-    dW = theano.shared(value=ZEROS(size), name=name, borrow=True)
+    W = theano.shared(value=init(size), name=name, borrow=False)
+    dW = theano.shared(value=ZEROS(size), name=name, borrow=False)
     self.params.append(W)
     self.dparams.append(dW)
 
@@ -52,7 +52,7 @@ class Layer(object):
     if name not in self.model.hiddens:
       self.model.hiddens[name] = {}
     self.model.hiddens[name]['layer'] = self
-    h = theano.shared(value=ZEROS(self.out_shape), name=name, borrow=True)
+    h = theano.shared(value=ZEROS(self.out_shape), name=name, borrow=False)
     self.model.hiddens[name]['init'] = h
     return self
 
@@ -102,9 +102,9 @@ class Layer(object):
     params = []
     dparams = []
     for p in self.params:
-      params.append(p.get_value(borrow=True))
+      params.append(p.get_value(borrow=False))
     for dp in self.dparams:
-      dparams.append(dp.get_value(borrow=True))
+      dparams.append(dp.get_value(borrow=False))
     parent_params = []
     for l in self.succ:
       parent_params.append(l.dump())
