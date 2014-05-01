@@ -103,34 +103,35 @@ class Model(object):
     self.train_model, self.test_model = self.build_model()
     self.start_it = self.load(ask)
 
-  def gen(self, text=None):
+  def gen(self, text_org=None):
     if self.start_it <= 0:
       print "Model not trained. Bye bye.\n"
       return
-    if text is None:
-      text = raw_input("Choose beginning of sequence:")
-    text = text.lower()
-    print "Input sequence: %s" % text
-    x = np.array([[ord(c) for c in text]], dtype=np.int32).transpose()
-    y = np.zeros((len(x), 1), dtype=np.int32)
-    rets = self.test_model(x, y)
-    np.random.seed(1)
-    for i in xrange(100):
-      loss, probs, error = rets[0:3]
-      p = [0]
-      for i in xrange(probs.shape[1]):
-        p.append(p[-1] + probs[0, i])
-      u = np.random.uniform()
-      idx = 0
-      for i in xrange(len(p)):
-        if u < p[i]:
-          idx = i - 1
-          break
-      text += chr(idx)
-      x = np.array([[idx]], dtype=np.int32)
-      zero = np.array([[0]], dtype=np.int32)
-      rets = self.test_model(x, zero)
-    print "Generated text : ", text
+    if text_org is None:
+      text_org = raw_input("Choose beginning of sequence:")
+    print "Input sequence: %s" % text_org
+    for k in xrange(5):
+      np.random.seed(k)
+      x = np.array([[ord(c) for c in text_org]], dtype=np.int32).transpose()
+      y = np.zeros((len(x), 1), dtype=np.int32)
+      text = text_org
+      rets = self.test_model(x, y, 0)
+      for i in xrange(100):
+        loss, probs, error = rets[0:3]
+        p = [0]
+        for i in xrange(probs.shape[1]):
+          p.append(p[-1] + probs[0, i])
+        u = np.random.uniform()
+        idx = 0
+        for i in xrange(len(p)):
+          if u < p[i]:
+            idx = i - 1
+            break
+        text += chr(idx)
+        x = np.array([[idx]], dtype=np.int32)
+        zero = np.array([[0]], dtype=np.int32)
+        rets = self.test_model(x, zero, 1)
+      print "Generated text : ", text
    
   def train(self):
     print '... training the model'

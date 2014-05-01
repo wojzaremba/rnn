@@ -228,7 +228,7 @@ class ChrSource(Source):
     if rollover:
       return self.split(x), epoch
     else:
-      last = (it%s+1)*bs >= data.shape[1]
+      last = it >= len(data) - 1
       return self.split(x), last
 
   def get_train_data(self, it, rollover=True):
@@ -265,6 +265,18 @@ class MockSource(Source):
     else:
       last = it > 2
       return data, last
+    
+class EmptySource(Source):
+  def __init__(self, model, batch_size, in_shape=256):
+    Source.__init__(self, model, None)
+    self.batch_size = batch_size
+    self.out_shape = (self.batch_size, in_shape)
+
+  def get_train_data(self, it, rollover=True):
+    fail
+
+  def get_test_data(self, it, rollover=True):
+    fail
 
 def l2(x):
   return T.sqrt(T.sum(T.square(x)))
