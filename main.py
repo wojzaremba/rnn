@@ -7,10 +7,20 @@ import sys
 
 # XXX: Create tests !!! Itegrate provious testing env.
 
-def mock(model):
-  model.n_epochs = 1
+def penn_data():
+   source = ChrSource
+   params = {'name': 'pennchr', 'unroll': 10}
+   return source, params
+
+def mock_data():
+  source = MockSource
+  params = {'freq': 2, 'classes': classes, 'batch_size': 10, 'unroll': 5}
+  return source, params
+
+def mock(source):
+  model = Model(name="mock", n_epochs=1)
   classes = 4
-  model.set_source(MockSource, {'freq': 2, 'classes': classes, 'batch_size': 10, 'unroll': 5}) \
+  model.set_source(source[0], source[1]) \
     .attach(FCL, {'out_len': 50, 'hiddens' : ['qqq']}) \
     .attach(BiasL, {}) \
     .attach(SigmL, {}) \
@@ -20,9 +30,9 @@ def mock(model):
     .attach(SoftmaxC, {})
   return model
 
-def pennchr(model, hid=200):
-  model.n_epochs = 1000
-  model.set_source(ChrSource, {'name': 'pennchr', 'unroll': 10}) \
+def pennchr(source, hid=200):
+  model = Model(name="pennchr%d" % hid,  n_epochs=10)
+  model.set_source(source[0], source[1]) \
     .attach(FCL, {'out_len': hid, 'hiddens' : ['qqq']}) \
     .attach(BiasL, {}) \
     .attach(SigmL, {}) \
@@ -32,15 +42,18 @@ def pennchr(model, hid=200):
     .attach(SoftmaxC, {})
   return model
 
-def pennchr1000(model):
-  return pennchr(model, 1000)
+def pennchr1000(source):
+  return pennchr(source, 1000)
 
 def main():
-  fun = 'mock'
+  options = {1: ('mock_data', 'mock'), 2:('penn_data', 'pennchr'), 3:('penn_data', 'pennchr1000')}
+  option = 1
   if len(sys.argv) > 1:
-    fun = sys.argv[1]
-  model = Model(name=fun)
-  model = eval(fun + '(model)')
+    option = sys.argv[1]
+  source_name, fun = options(option)
+  source = eval(source_name + '()')
+  model = eval(fun + '(source)')
+  model.name = fun
   model.init()
   model.train()
   model.test()
