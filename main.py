@@ -30,8 +30,8 @@ def mock(source):
     .attach(SoftmaxC, {})
   return model
 
-def pennchr(source, hid=600):
-  model = Model(name="pennchr%d" % hid, n_epochs=10, momentum=0.)
+def pennchr(source, hid):
+  model = Model(name="pennchr%d" % hid, n_epochs=10000, momentum=0.)
   model.set_source(source[0], source[1]) \
     .attach(FCL, {'out_len': hid, 'hiddens' : ['qqq']}) \
     .attach(BiasL, {}) \
@@ -45,8 +45,11 @@ def pennchr(source, hid=600):
 def pennchr1000(source):
   return pennchr(source, 1000)
 
+def pennchr600(source):
+  return pennchr(source, 600)
+
 def main():
-  options = {1: ('mock_data', 'mock'), 2:('penn_data', 'pennchr'), 3:('penn_data', 'pennchr1000')}
+  options = {1: ('mock_data', 'mock'), 2:('penn_data', 'pennchr600'), 3:('penn_data', 'pennchr1000')}
   option = 1
   if len(sys.argv) > 1:
     option = sys.argv[1]
