@@ -228,7 +228,7 @@ class ChrSource(Source):
     if rollover:
       return self.split(x), epoch
     else:
-      last = (it+1)*bs >= data.shape[1]
+      last = (it%s+1)*bs >= data.shape[1]
       return self.split(x), last
 
   def get_train_data(self, it, rollover=True):
