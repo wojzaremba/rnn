@@ -2,7 +2,7 @@ import numpy as np
 from math import exp, log
 import theano
 import theano.tensor as T
-import config
+import conf
 import os
 import cPickle
 import time
@@ -66,7 +66,7 @@ class Model(object):
     return train_model, test_model
 
   def load(self, ask=True):
-    dname = config.DUMP_DIR + self.name
+    dname = conf.DUMP_DIR + self.name
     if not os.path.isdir(dname):
       return 0
     epochs = [int(f[len(self.name) + 1:]) for f in os.listdir(dname)]
@@ -88,9 +88,9 @@ class Model(object):
     return epoch + 1
 
   def save(self, epoch):
-    if not os.path.isdir(config.DUMP_DIR):
-      os.makedirs(config.DUMP_DIR)
-    dname = config.DUMP_DIR + self.name
+    if not os.path.isdir(conf.DUMP_DIR):
+      os.makedirs(conf.DUMP_DIR)
+    dname = conf.DUMP_DIR + self.name
     if not os.path.isdir(dname):
       os.makedirs(dname)
     fname = "%s/%s_%d" % (dname, self.name, epoch)

@@ -8,7 +8,7 @@ import sys
 # XXX: Create tests !!! Itegrate provious testing env.
 
 def mock(model):
-  model.n_epochs = 3
+  model.n_epochs = 1
   classes = 4
   model.set_source(MockSource, {'freq': 2, 'classes': classes, 'batch_size': 10, 'unroll': 5}) \
     .attach(FCL, {'out_len': 50, 'hiddens' : ['qqq']}) \

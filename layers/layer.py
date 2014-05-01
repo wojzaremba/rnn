@@ -3,7 +3,7 @@ import theano
 import theano.tensor as T
 from theano.ifelse import ifelse
 from math import floor, ceil
-import config
+import conf
 import cPickle
 import random
 
@@ -73,10 +73,10 @@ class Layer(object):
       updates += update
     for p, dp in zip(self.params, self.dparams):
       grad = T.grad(cost=cost, wrt=p)
-      dp_tmp = momentum * dp + (1 - momentum) * grad
-      dp_tmp = ifelse(T.lt(l2(dp_tmp), threshold), dp_tmp, threshold * dp_tmp / l2(dp_tmp))
-      updates.append((dp, dp_tmp))
-      updates.append((p, p - lr * dp_tmp))
+      grad = momentum * dp + (1 - momentum) * grad
+      grad *= ifelse(T.lt(l2(grad), threshold), 1., threshold / l2(grad))
+      updates.append((dp, grad))
+      updates.append((p, p - lr * grad))
     return updates
 
   def get_costs(self, x, y):
@@ -132,7 +132,7 @@ class FCL(Layer):
     for i in xrange(len(self.hiddens)):
       name = self.hiddens[i]
       s = self.model.hiddens[name]['layer'].out_shape
-      self.add_shared("W_%s" % name, (self.out_len, s[1]))
+      self.add_shared("W_%s" % name, (s[1], self.out_len))
 
   def fp(self, x, _):
     if x.type.dtype == 'int32':
@@ -142,7 +142,7 @@ class FCL(Layer):
     for i in xrange(len(self.hiddens)):
       name = self.hiddens[i]
       h = self.model.hiddens[name]['val']
-      self.output += T.dot(h, self.params[i + 1].T)
+      self.output += T.dot(h, self.params[i + 1])
 
 
 class BiasL(Layer):
@@ -214,7 +214,7 @@ class ChrSource(Source):
     self.out_shape = (self.batch_size, 256)
     
   def read_file(self, filename):
-    fname = config.DATA_DIR + self.name + "/" + filename
+    fname = conf.DATA_DIR + self.name + "/" + filename
     ret = cPickle.load(open(fname, "rb"))
     return ret
 
@@ -263,7 +263,7 @@ class MockSource(Source):
     if rollover:
       return data, epoch
     else:
-      last = it > 10
+      last = it > 2
       return data, last
 
 def l2(x):
