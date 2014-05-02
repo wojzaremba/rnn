@@ -5,8 +5,6 @@ from layers.cost import SoftmaxC
 from layers.bundle import FCB, SoftmaxBC
 import sys
 
-# XXX: Create tests !!! Itegrate provious testing env.
-
 def penn_data():
    source = ChrSource
    params = {'name': 'pennchr', 'unroll': 20, 'backroll': 5}
@@ -31,7 +29,7 @@ def mock(source):
   return model
 
 def pennchr(source, hid):
-  model = Model(name="pennchr%d" % hid, n_epochs=10000, momentum=0.5, lr=0.25)
+  model = Model(name="pennchr%d" % hid, n_epochs=10000, momentum=0.5, lr=1)
   model.set_source(source[0], source[1]) \
     .attach(FCL, {'out_len': hid, 'hiddens' : ['qqq']}) \
     .attach(BiasL, {}) \
@@ -53,7 +51,7 @@ def pennchr800(source):
 
 def main():
   options = {'1': ('mock_data', 'mock'), '2':('penn_data', 'pennchr600'), '3':('penn_data', 'pennchr800')}
-  option = 1
+  option = '3'
   if len(sys.argv) > 1:
     option = sys.argv[1]
   source_name, fun = options[option]

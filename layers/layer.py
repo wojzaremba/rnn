@@ -197,14 +197,15 @@ class Source(Layer):
     self.output = x
 
   def split(self, x):
-    assert 0
-    # INCLUDE BACKROLL.
-    y = x[1:, :]
-    x = x[0:-1, :]
     s = int(ceil(float(x.shape[0]) / float(self.unroll)))
-    x = np.array_split(x, s)
-    y = np.array_split(y, s)
-    return zip(x, y)
+    xlist = []
+    ylist = []
+    for i in xrange(s):
+      start = max(i*self.unroll-self.backroll, 0)
+      end = min((i+1)*self.unroll, x.shape[0] - 1)
+      xlist.append(x[start:end, :])
+      ylist.append(x[(start+1):(end+1), :])
+    return zip(xlist, ylist)
 
 class ChrSource(Source):
   def __init__(self, model, unroll, backroll, name):
