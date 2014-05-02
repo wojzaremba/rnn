@@ -8,6 +8,7 @@ rnn.pdf: $(PARTS) bibliography.bib
 	pdflatex -shell-escape rnn.tex
 	bibtex rnn
 	bibtex rnn
+	bibtex rnn
 	pdflatex -shell-escape rnn.tex
 	pdflatex -shell-escape rnn.tex
 

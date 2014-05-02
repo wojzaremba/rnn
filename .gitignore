@@ -1,6 +1,5 @@
 conf.py
 *.swp
-*/rnn.pdf
 */*.swp
 *.m~
 */*.m~
