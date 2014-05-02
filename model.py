@@ -56,7 +56,7 @@ class Model(object):
                                                          outputs_info=outputs_info)
     loss = losses.sum()
     error = errors.sum() / T.cast((T.neq(y, 255).sum()), floatX)
-    hidden_updates = [(h['init'], hids[-1]) for h in self.hiddens.values()]
+    hidden_updates = [(h['init'], hids[-1 - self.source.backroll]) for h in self.hiddens.values()]
     updates = self.source.get_updates(loss, self.sgd_params)
     updates += hidden_updates
     rets = [loss, probs[-1], error]
@@ -64,14 +64,15 @@ class Model(object):
     test_model = theano.function([x, y, reset], rets, updates=hidden_updates)
     return train_model, test_model
 
-  def load(self, ask=True):
+  def load(self, epoch=None, ask=True):
     dname = conf.DUMP_DIR + self.name
     if not os.path.isdir(dname):
       return 0
-    epochs = [int(f[len(self.name) + 1:]) for f in os.listdir(dname)]
-    if len(epochs) == 0:
-      return 0
-    epoch = max(epochs)
+    if epoch is None:
+      epochs = [int(f[len(self.name) + 1:]) for f in os.listdir(dname)]
+      if len(epochs) == 0:
+        return 0
+      epoch = max(epochs)
     fname = "%s/%s_%d" % (dname, self.name, epoch)
     res = ''
     if ask:
@@ -97,10 +98,10 @@ class Model(object):
     print "Saving weights %s" % (fname)
     cPickle.dump(self.source.dump(), f)
 
-  def init(self, ask=True):
+  def init(self, epoch=None, ask=True):
     self.source.rec_final_init()
     self.train_model, self.test_model = self.build_model()
-    self.start_it = self.load(ask)
+    self.start_it = self.load(epoch, ask)
 
   def gen(self, text_org=None):
     if self.start_it <= 0:
@@ -157,6 +158,8 @@ class Model(object):
         perplexity.append(self.test(self.source.get_valid_data, False))
         if perplexity[-1] > min(perplexity):
           lr /= 2
+        else:
+          self.save(-1)
         if len(perplexity) > 3 and min(perplexity[-3:-1]) > min(perplexity):
           break
     self.save(it - 1)

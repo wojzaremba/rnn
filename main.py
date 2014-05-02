@@ -9,13 +9,13 @@ import sys
 
 def penn_data():
    source = ChrSource
-   params = {'name': 'pennchr', 'unroll': 10}
+   params = {'name': 'pennchr', 'unroll': 20, 'backroll': 5}
    return source, params
 
 def mock_data():
   source = MockSource
   classes = 4
-  params = {'freq': 2, 'classes': classes, 'batch_size': 10, 'unroll': 5}
+  params = {'freq': 2, 'classes': classes, 'batch_size': 10, 'unroll': 5, 'backroll': 4}
   return source, params
 
 def mock(source):
@@ -31,7 +31,7 @@ def mock(source):
   return model
 
 def pennchr(source, hid):
-  model = Model(name="pennchr%d" % hid, n_epochs=10, momentum=0., lr=0.25)
+  model = Model(name="pennchr%d" % hid, n_epochs=10000, momentum=0.5, lr=0.25)
   model.set_source(source[0], source[1]) \
     .attach(FCL, {'out_len': hid, 'hiddens' : ['qqq']}) \
     .attach(BiasL, {}) \
@@ -48,8 +48,11 @@ def pennchr1000(source):
 def pennchr600(source):
   return pennchr(source, 600)
 
+def pennchr800(source):
+  return pennchr(source, 800)
+
 def main():
-  options = {'1': ('mock_data', 'mock'), '2':('penn_data', 'pennchr600'), '3':('penn_data', 'pennchr1000')}
+  options = {'1': ('mock_data', 'mock'), '2':('penn_data', 'pennchr600'), '3':('penn_data', 'pennchr800')}
   option = 1
   if len(sys.argv) > 1:
     option = sys.argv[1]

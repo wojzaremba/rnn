@@ -5,7 +5,7 @@ import sys
 from main import *
 
 def main():
-  fun = 'pennchr'
+  fun = 'pennchr600'
   text = "My_name_is"
   if len(sys.argv) > 1:
     fun = sys.argv[1]
@@ -14,7 +14,7 @@ def main():
   source = (EmptySource, {'batch_size': 1})   
   model = eval(fun + '(source)')
 
-  model.init(ask=False)
+  model.init(-1, ask=False)
   model.gen(text)
   
 

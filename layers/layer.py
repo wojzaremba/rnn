@@ -179,9 +179,10 @@ class SigmL(ActL):
     ActL.__init__(self, sigmoid, prev_layer)
 
 class Source(Layer):
-  def __init__(self, model, unroll):
+  def __init__(self, model, unroll, backroll):
     Layer.__init__(self, None, model)
     self.unroll = unroll
+    self.backroll = backroll
 
   def get_train_data(self, it):
     fail
@@ -196,6 +197,8 @@ class Source(Layer):
     self.output = x
 
   def split(self, x):
+    assert 0
+    # INCLUDE BACKROLL.
     y = x[1:, :]
     x = x[0:-1, :]
     s = int(ceil(float(x.shape[0]) / float(self.unroll)))
@@ -204,8 +207,8 @@ class Source(Layer):
     return zip(x, y)
 
 class ChrSource(Source):
-  def __init__(self, model, unroll, name):
-    Source.__init__(self, model, unroll)
+  def __init__(self, model, unroll, backroll, name):
+    Source.__init__(self, model, unroll, backroll)
     self.name = name
     self.batch_size = None
     self.training = self.read_file("train.pkl")
@@ -238,8 +241,8 @@ class ChrSource(Source):
     return self.get_data(self.test, it)
 
 class MockSource(Source):
-  def __init__(self, model, batch_size, unroll, freq, classes):
-    Source.__init__(self, model, unroll)
+  def __init__(self, model, batch_size, unroll, backroll, freq, classes):
+    Source.__init__(self, model, unroll, backroll)
     self.batch_size = batch_size
     self.freq = freq
     self.classes = classes
