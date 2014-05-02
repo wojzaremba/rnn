@@ -163,6 +163,7 @@ class Model(object):
         if len(perplexity) > 3 and min(perplexity[-3:-1]) > min(perplexity):
           break
     self.save(it - 1)
+    self.load(-1) # Loading model with best perplexity.
     print "Training finished !"
     print "Perplexities: %s" % str(perplexity)
 
