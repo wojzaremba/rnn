@@ -114,7 +114,7 @@ class Model(object):
       x = np.array([[ord(c) for c in text_org]], dtype=np.int32).transpose()
       y = np.zeros((len(x), 1), dtype=np.int32)
       text = text_org
-      rets = self.test_model(x, y, 0)
+      rets = self.test_model(x, y, 1)
       for i in xrange(100):
         loss, probs, error = rets[0:3]
         p = [0]
@@ -129,7 +129,7 @@ class Model(object):
         text += chr(idx)
         x = np.array([[idx]], dtype=np.int32)
         zero = np.array([[0]], dtype=np.int32)
-        rets = self.test_model(x, zero, 1)
+        rets = self.test_model(x, zero, 0)
       print "Generated text : ", text
    
   def train(self):
@@ -161,7 +161,7 @@ class Model(object):
           break
     self.save(it - 1)
     print "Training finished !"
-    print "Perplexities: %s" % str(perplexities)
+    print "Perplexities: %s" % str(perplexity)
 
   def test(self, data_source=None, printout=True):
     if data_source == None:
