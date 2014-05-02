@@ -5,7 +5,7 @@ import sys
 from main import *
 
 def main():
-  fun = 'mock'
+  fun = 'pennchr'
   text = "My_name_is"
   if len(sys.argv) > 1:
     fun = sys.argv[1]

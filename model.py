@@ -138,8 +138,8 @@ class Model(object):
     start = time.time()
     last_save = start
     it = self.start_it
-    perplexity = float('Inf')
     lr = self.lr_val / self.source.batch_size
+    perplexity = [float('Inf')]
     while True:  
       data, epoch, last = self.source.get_train_data(it)
       if epoch >= self.n_epochs:
@@ -154,12 +154,14 @@ class Model(object):
         self.save(it)
       it += 1
       if last:
-        new_perplexity = self.test(self.source.get_valid_data, False)
-        if new_perplexity > perplexity:
+        perplexity.append(self.test(self.source.get_valid_data, False))
+        if perplexity[-1] > min(perplexity):
           lr /= 2
-        perplexity = min(perplexity, new_perplexity)
+        if len(perplexity) > 3 and min(perplexity[-3:-1]) > min(perplexity):
+          break
     self.save(it - 1)
     print "Training finished !"
+    print "Perplexities: %s" % str(perplexities)
 
   def test(self, data_source=None, printout=True):
     if data_source == None:

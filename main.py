@@ -31,7 +31,7 @@ def mock(source):
   return model
 
 def pennchr(source, hid):
-  model = Model(name="pennchr%d" % hid, n_epochs=10000, momentum=0.)
+  model = Model(name="pennchr%d" % hid, n_epochs=10, momentum=0., lr=0.25)
   model.set_source(source[0], source[1]) \
     .attach(FCL, {'out_len': hid, 'hiddens' : ['qqq']}) \
     .attach(BiasL, {}) \
