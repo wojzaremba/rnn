@@ -1,5 +1,5 @@
 
-% Use the following line _only_ if you're still using LaTeX 2.09.
+% Use the following line  only  if you're still using LaTeX 2.09.
 %\documentstyle[icml2014,epsf,natbib]{article}
 % If you rely on Latex2e packages, like most moden people use this:
 \documentclass{article}
@@ -13,6 +13,7 @@
 
 % For citations
 \usepackage{natbib}
+\usepackage{comment}
 
 % For algorithms
 \usepackage{algorithm}
@@ -31,67 +32,191 @@
 % Employ the following version of the ``usepackage'' statement for
 % submitting the draft version of the paper for review.  This will set
 % the note in the first column to ``Under review.  Do not distribute.''
-\usepackage{icml2014} 
+%\usepackage{icml2014} 
 % Employ this version of the ``usepackage'' statement after the paper has
 % been accepted, when creating the final version.  This will set the
 % note in the first column to ``Proceedings of the...''
-%\usepackage[accepted]{icml2014}
+\usepackage[accepted]{icml2014}
 
 
 
 \begin{document} 
 
 \twocolumn[
-\icmltitle{Recurrent neural network as a language model}
+\icmltitle{Recurrent neural network as a language model - technical report}
 
 \icmlauthor{Wojciech Zaremba}{woj.zaremba@gmail.com}
+\icmladdress{New York University}
+\icmlauthor{Rob Fergus}{fergus@cs.nyu.edu}
+\icmladdress{New York University}
+\vskip -0.12in
+\icmladdress{Facebook AI Group}
 
-\icmlkeywords{natual language processing, recurrent neural networks, long-short term memory units, language model}
+\icmlkeywords{natual language processing, recurrent neural networks, language model}
 
 \vskip 0.3in
 ]
 
 \begin{abstract} 
+  Recurrent neural networks (RNN) offer powerful framework to learn any arbitrary dependency.
+  They are expressive as a finite memory Turning machine (e.g. brain). However, their 
+  training is difficult, and computationally expensive.
+
+
+  This work focuses on training RNNs for character level language modelling task. 
+  We provide set of pragmatic recommendations about how to train a simple, one layer RNNs 
+  for such task.
+  Moreover, we support our statements with Theano \cite{bergstra+al:2010-scipy} code which reproduces close to state-of-the-art results
+  on Penn Treebank Corpus (code executable both on CPU and GPU). 
 \end{abstract} 
 
 \section{Introduction}
-perplexity 3.82, 3.66
+Neural networks (NN) are stacked linear transformations alternated with non-linearities. 
+Current, state-of-the-art results in many computer vision tasks are achieved with feed-forward neural networks.
+In feed-forward networks computation flows in one direction from input layer to output layers.
+Recurrent neural networks (RNN) contain connection between instances
+of feed forward networks shifted in time. Such connections allow to maintain memory, and perform prediction dependent on
+a history. Based on current advances in computer vision thanks to feed-forward networks, we believe
+that models heavily utilizing RNNs can bring superior to current state-of-the-art results on NLP tasks.
+Moreover, we believe that they might be crucial for further advances in computer vision (attention based models, 
+and video prediction). 
 
 
-Input sequence: My_name_is
-Generated text :  My_name_is_reorghty_sheun_'s_support_with_hiem_mr._do_n't_cliew_being_bare_hold_whree_decall_policls_percence
-
-Generated text :  My_name_is_r._<unk>_for_<unk>_such_than_N_who_ribry_computer_people_of_good_office_security_plannumally_firm
-r
-Generated text :  My_name_is_<unk>_nelt_and_the_impact_added_in_the_who_make_vicere_cavious_comeuted_housbill-quarter_earnings_t
-Generated text :  My_name_is_reluse_N_N_of_oct._N_centrally_to_<unk>_has_sold_a_last_spokesman_by_stock_N_N_and_openson_to_the_c
-Generated text :  My_name_issuming_'s_result
-ments_that_they_ago_n't_is_for_now_of_as_this_most_of_the_lates_apporton_of_the_fir
+Common setting for RNN is a prediction of next element in a sequence. Input is a single element of 
+a sequence, and a previous state. 
+Consecutive elements of sequence are fetched by RNN. Network attempts at every stage to predict next element of sequence.
+We examine such setting on task of language modelling. For purpose of simplicity, we
+constrain ourselves to character level language modelling.
 
 
 
+Typical training procedure for RNNs is stochastic gradient descent (SGD). However, it is difficult to obtain
+a valuable models of RNNs by applying unconstrained SGD.
+Recurrency brings much higher expressive power in compare feed-forward networks, and in the same time it makes them more difficult to train. There
+are several common issues (1) vanishing gradient, (2) exploding gradient, (3) short memory. We address
+exploding gradient issue by clipping gradients, and we don't tackle remaining problems.
 
-Input sequence: My_name_is
-Generated text :  My_name_is_some_issued_than_this_uir_the_rep._only_exchange_may_be_added_a_fran_who_saled_for_national_of_pas_
-Generated text :  My_name_is_s$_N_N_in_the_positive_to_<unk>_in_that_the_greas-one_analynese_minorncement_spons_crevious_negre
-n
-Generated text :  My_name_is_<unk>_net_last_yen_japanes_before_knothing_of_this_is_<unk>_money_<unk>_expease_<unk>_it_east_is_ap
-Generated text :  My_name_is_relow_a_late_of_performaschest_up_N_filling_time_befiners_said_it_credit_of_a_<unk>_in_the_store_na
-Generated text :  My_name_issues_by_benetul_&_<unk>_a_new_qualed_of_found_of_roinco_the_timently_buy_of_alleaders_in_the_sectfol
 
-\section{Related work}
+We proceed by presenting related work (Section \ref{sec:related work}). Next, we describe our framework (Section
+\ref{sec:framework}), and finally we present experimental results (Section \ref{sec:experiments}). 
+Code allowing to reproduce experiments (and train any arbitrary RNN on CPU or GPU) is available online\footnote{\url{https://github.com/wojzaremba/rnn}}.
 
-\section{Recurrent neural networks as a language model}
+\section{Related work}\label{sec:related work}
+There have been expensive interest in different flavours of neural networks 
+with recurrent connections \cite{hopfield1982neural, hinton2006fast}. This
+approaches consider recurrency not to account for time dependency, but
+for internal data dependency (e.g. correlation between pixel values). 
 
-\section{Experiments}
+
+We are mainly interest in RNNs, which aim to predict 
+time-dependent sequence. \cite{mikolov2012statistical} 
+\cite{sutskever2013training} consider extensively 
+training of such networks for characters, and words. Moreover,
+they analyze how best optimize such models (e.g. with Hessian-free method, or 
+by clipping gradients).
+
+
+\cite{graves2013generating} focuses on how to extend memory of model. 
+He addresses it by using Long-Short-Term-Memory units (LSTSs).
+There are weak evidences that LSTMs prevent gradient from vanishing.
+
+\section{Framework}\label{sec:framework}
+Our code is build in Theano. This python framework allows to define python symbolic expressions, and 
+differentiate with respect to them. Moreover, it compiles code to fast CPU or GPU executable versions.
+
+
+We have trained a simple RNN as depicted on the Figure \ref:{fig:schema}. Our best model has 600 hidden units.
+We initialized all weights with Gausssian having $0.001$ variance, and all biases with $0$. We train model with
+SGD on minibatches of size 10, and we unroll RNN for 10 steps. We don't use any momentum (for such small models 
+it doesn't make a big difference). We clip gradients above norm $15$ (if norm of a gradient is higher than $15$ then
+we project it down).
+Our initial learning rate is $0.1$. We decrease it by factor of $2$ every time
+when perplexity on a validation set increases (we measure perplexity in every epoch). It takes around $5-8$ epochs
+to decrease learning rate. Single epoch computes for $20$ minutes.
+If perplexity increased 
+for 2 epochs then we finish training (early stopping criteria).
+
+\begin{figure}
+  \subfigure[Figure presents information flow in recurrent network based on the simplest possible neural network. 
+  Experiments in this paper have been perfomed on such networks, where non-linearity is a sigmoid, and classifier is 
+a softmax. We consider models with hidden layers of the size $200, 600, 1000$, and input is always a ASCII character.
+Input can be represented as an indicator vector having 256 dimensions, however in practise is better to story it as int8.]{
+    \includegraphics[width=\linewidth]{img/schema.png}
+  }\label{fig:schema}
+\end{figure}
+
+
+\section{Experiments}\label{sec:experiments}
+First, we designed experiments to verify that our model has any memory. 
+Next we trained it Penn Treebank Corpus\footnote{\url{http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz}}.  
+
 
 \subsection{Synthetic data}
+Our first experiment verifies that our model has any memory. I have trained network on sequences ''aabbccddaabbccdd$\dots$`` starting
+from any arbitrary random position. In order to give a proper prediction of next character network has to remember what
+is the current position. If it is a first ''a``, or a second ''a``. Starting from any random position (with clean hidden state), for first two predictions
+network is uncertain about next character. However, after two predictions, all next predictions are deterministic. Network
+learns to predict them correctly. Very shortly networks gets perplexity close to one on this task. Moreover, we can condition
+on initial part of sentence, and generate rest of it. Tables \ref{tab:a}, \ref{tab:aabb} shows exemplary generated sequences.
 
-\subsection{Wikipedia corpus}
+
+\begin{table}[t]
+\tiny
+\centering
+\begin{tabular}{l}
+\hline
+Generated sequence from input sequence ``a'' \\
+\hline
+ abbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccdd\\
+ aabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccd\\
+ aabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccd\\
+ abbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccdd\\
+ adaabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbc\\
+\hline
+\end{tabular}
+\caption{Toy example showing that network has memory. As it generates sequences starting from ``a'' there is 
+        ambiguity.}
+        \label{tab:a}
+\end{table}
+
+
+
+\begin{table}[t]
+\tiny
+\centering
+\begin{tabular}{l}
+\hline
+Generated sequence from input sequence ``aabb'' \\
+\hline
+ aabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccd\\
+ aabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccd\\
+ aabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccd\\
+ aabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccd\\
+ aabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccd\\
+\hline
+\end{tabular}
+\caption{Initial sequence ``aabb'' determines further sequence unambiguously.}
+        \label{tab:aabb}
+\end{table}
+
+
+
+\subsection{Penn Treebank Corpus}
+perplexity 3.009064
+
+
+Input sequence: My name is
+ My name is profitable mr. <unk> northern new protecting earnings companies he says rich deficit-ration
+ My name is pg according to a roller-based in the world the <unk>
+ My name is <unk> of primary sales bridge brokers rose N N to N a during its version of colombian alfred mont
+ My name is playing improve new shareholders fell N N in october N on the market on monday
+ My name issues cud holds of <unk> abortion agreement bill one of its group to make manager
+
 
 \section{Discussion}
 
-\cite{langley00}
+\section{Acknowledgment}
+Thank you to Ilya Sutskever, Tomas Mikolov, Cağlar Gülçehre for insightful discussions on how to train RNNs.
 
 \bibliography{bibliography}
 \bibliographystyle{icml2014}
