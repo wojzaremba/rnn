@@ -5,6 +5,8 @@ from layers.cost import SoftmaxC
 from layers.bundle import FCB, SoftmaxBC
 import sys
 
+# XXX: if things won't work better then check if backroll is not scrued up.
+
 def penn_data():
    source = ChrSource
    params = {'name': 'pennchr', 'unroll': 20, 'backroll': 5}
