@@ -127,7 +127,10 @@ We present here setup for our best model.
 
 
 We have trained a simple RNN as depicted on the Figure \ref{fig:schema}. Our best model has 600 hidden units.
-We initialized all weights with Gausssian having $0.001$ variance, and all biases with $0$. We train model with
+We initialized all weights with Gausssian having $0.001$ variance, and all biases with $0$. 
+It is good to reset hidden values between different instances of text. It's better to set it to all ones, rather
+than to all zeros.
+We train model with
 SGD on minibatches of size 10, and we unroll RNN for 10 steps. We don't use any momentum (for such small models 
 it doesn't make a big difference). We clip gradients above norm $15$ (if norm of a gradient is higher than $15$ then
 we project it down).
@@ -137,6 +140,8 @@ to decrease learning rate. Single epoch computes for $20$ minutes.
 If perplexity increased 
 for 2 epochs then we finish training (early stopping criteria).
 
+
+
 \begin{figure}
   \subfigure[Figure presents information flow in recurrent network based on the simplest possible neural network. 
   Experiments in this paper have been perfomed on such networks, where non-linearity is a sigmoid, and classifier is 
@@ -145,6 +150,9 @@ Input can be represented as an indicator vector having 256 dimensions, however i
     \includegraphics[width=\linewidth]{img/schema.png}
   }\label{fig:schema}
 \end{figure}
+
+Final layer is a softmax. This classifier gives probabilities of ocurrence for next character. During sequence generation
+, we sample from this probability. 
 
 
 \section{Experiments}\label{sec:experiments}
