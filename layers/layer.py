@@ -196,12 +196,12 @@ class Source(Layer):
   def fp(self, x, _):
     self.output = x
 
-  def split(self, x):
+  def split(self, x, backroll):
     s = int(ceil(float(x.shape[0]) / float(self.unroll)))
     xlist = []
     ylist = []
     for i in xrange(s):
-      start = max(i*self.unroll-self.backroll, 0)
+      start = max(i*self.unroll-backroll, 0)
       end = min((i+1)*self.unroll, x.shape[0] - 1)
       xlist.append(x[start:end, :])
       ylist.append(x[(start+1):(end+1), :])
@@ -223,23 +223,23 @@ class ChrSource(Source):
     ret = cPickle.load(open(fname, "rb"))
     return ret
 
-  def get_data(self, data, it):
+  def get_data(self, data, it, backroll):
     bs = self.batch_size
     s = len(data)
     epoch = int(floor(it/s))
     np.random.seed(epoch)
     it_perm = np.random.permutation(s)[it % s]
     x = data[it_perm]
-    return self.split(x), epoch, it % len(data) == len(data) - 1
+    return self.split(x, backroll), epoch, it % len(data) == len(data) - 1
 
   def get_train_data(self, it):
-    return self.get_data(self.training, it)
+    return self.get_data(self.training, it, self.backroll)
 
   def get_valid_data(self, it):
-    return self.get_data(self.valid, it)
+    return self.get_data(self.valid, it, 0)
 
   def get_test_data(self, it):
-    return self.get_data(self.test, it)
+    return self.get_data(self.test, it, 0)
 
 class MockSource(Source):
   def __init__(self, model, batch_size, unroll, backroll, freq, classes):
@@ -257,7 +257,7 @@ class MockSource(Source):
     for b in xrange(self.batch_size):
       for i in xrange(l):
         x[i, b] = ord('a') + floor((i + b + start) / self.freq) % self.classes
-    return self.split(x), floor(it / 20.), it % 20 == 19
+    return self.split(x, self.backroll), floor(it / 20.), it % 20 == 19
 
   def get_test_data(self, it):
     data, epoch, _ = self.get_train_data(it)
