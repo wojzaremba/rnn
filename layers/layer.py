@@ -1,11 +1,13 @@
 import numpy as np
+import os
 import theano
 import theano.tensor as T
 from theano.ifelse import ifelse
 from math import floor, ceil
 import conf
 import cPickle
-import random
+import urllib
+import os.path
 
 floatX = theano.config.floatX
 RANDN = lambda s: 0.001 * np.array(np.random.random(s), dtype=floatX)
@@ -43,7 +45,7 @@ class Layer(object):
 
   def final_init(self):
     pass
- 
+
   def get_prev(self):
     assert len(self.prev) == 1
     return self.prev[0]
@@ -96,8 +98,8 @@ class Layer(object):
         unique.append(item)
     return unique
 
-  def fp(x, y):
-    fail
+  def fp(self, x, y):
+    raise NotImplementedError()
 
   def dump(self):
     params = []
@@ -121,9 +123,11 @@ class Layer(object):
 
 
 class FCL(Layer):
-  def __init__(self, out_len, hiddens=[], prev_layer=None):
+  def __init__(self, out_len, hiddens=None, prev_layer=None):
     Layer.__init__(self, prev_layer)
     in_len = reduce(lambda x, y: x * y, list(self.in_shape)[1:])
+    if hiddens is None:
+      hiddens = []
     self.hiddens = hiddens
     self.add_shared("W", (out_len, in_len))
     self.out_len = out_len
@@ -184,20 +188,20 @@ class Source(Layer):
     self.unroll = unroll
     self.backroll = backroll
 
-  def get_train_data(self, it):
-    fail
+  def get_train_data(self, it, backroll):
+    raise NotImplementedError()
 
-  def get_valid_data(self, it):
-    return self.get_train_data(it) 
+  def get_valid_data(self, it, backroll=0):
+    return self.get_train_data(it, backroll)
 
-  def get_test_data(self, it):
-    return self.get_train_data(it)
+  def get_test_data(self, it, backroll=0):
+    return self.get_train_data(it, backroll)
 
   def fp(self, x, _):
     self.output = x
 
   def split(self, x, backroll):
-    s = int(ceil(float(x.shape[0]) / float(self.unroll)))
+    s = int(ceil(float(x.shape[0]-1) / float(self.unroll)))
     xlist = []
     ylist = []
     for i in xrange(s):
@@ -217,14 +221,25 @@ class ChrSource(Source):
     self.test = self.read_file("test.pkl")
     self.batch_size = self.training[0].shape[1]
     self.out_shape = (self.batch_size, 256)
-    
+
   def read_file(self, filename):
-    fname = conf.DATA_DIR + self.name + "/" + filename
-    ret = cPickle.load(open(fname, "rb"))
+    dname = conf.DATA_DIR + "/" + self.name
+    fname = dname + "/" + filename
+    if not os.path.isfile(fname):
+      if not os.path.isdir(conf.DATA_DIR):
+        os.makedirs(conf.DATA_DIR)
+      if not os.path.isdir(dname):
+        os.makedirs(dname)
+      url = "http://www.cs.nyu.edu/~zaremba/%s/%s" % (self.name, filename)
+      print "Downloding training data from %s" % url
+      urllib.urlretrieve(url, fname)
+    f = open(fname, "rb")
+    ret = cPickle.load(f)
     return ret
 
-  def get_data(self, data, it, backroll):
-    bs = self.batch_size
+  def get_data(self, data, it, backroll=None):
+    if backroll is None:
+      backroll = self.backroll
     s = len(data)
     epoch = int(floor(it/s))
     np.random.seed(epoch)
@@ -232,14 +247,14 @@ class ChrSource(Source):
     x = data[it_perm]
     return self.split(x, backroll), epoch, it % len(data) == len(data) - 1
 
-  def get_train_data(self, it):
-    return self.get_data(self.training, it, self.backroll)
+  def get_train_data(self, it, backroll=None):
+    return self.get_data(self.training, it, backroll)
 
-  def get_valid_data(self, it):
-    return self.get_data(self.valid, it, 0)
+  def get_valid_data(self, it, backroll=0):
+    return self.get_data(self.valid, it, backroll)
 
-  def get_test_data(self, it):
-    return self.get_data(self.test, it, 0)
+  def get_test_data(self, it, backroll=0):
+    return self.get_data(self.test, it, backroll)
 
 class MockSource(Source):
   def __init__(self, model, batch_size, unroll, backroll, freq, classes):
@@ -250,30 +265,25 @@ class MockSource(Source):
     self.out_shape = (self.batch_size, 256)
     np.random.seed(1)
 
-  def get_train_data(self, it):
+  def get_train_data(self, it, backroll=None):
+    if backroll is None:
+      backroll = self.backroll
     start = np.random.randint(0, 10)
     l = np.random.randint(0, 100) + 100 + 2 * self.unroll
     x = np.zeros(shape=(l, self.batch_size), dtype=np.int32)
     for b in xrange(self.batch_size):
       for i in xrange(l):
         x[i, b] = ord('a') + floor((i + b + start) / self.freq) % self.classes
-    return self.split(x, self.backroll), floor(it / 20.), it % 20 == 19
+        epoch = floor(it * self.batch_size / 200.)
+        last = floor((it + 1) * self.batch_size / 200.) != epoch
+    return self.split(x, backroll), epoch, last
 
-  def get_test_data(self, it):
-    data, epoch, _ = self.get_train_data(it)
+  def get_valid_data(self, it, backroll=0):
+    return self.get_test_data(it, backroll)
+
+  def get_test_data(self, it, backroll=0):
+    data, epoch, _ = self.get_train_data(it, backroll)
     return data, epoch, it % 5 == 4
-    
-class EmptySource(Source):
-  def __init__(self, model, batch_size, in_shape=256):
-    Source.__init__(self, model, None)
-    self.batch_size = batch_size
-    self.out_shape = (self.batch_size, in_shape)
-
-  def get_train_data(self, it):
-    fail
-
-  def get_test_data(self, it):
-    fail
 
 def l2(x):
   return T.sqrt(T.sum(T.square(x)))
