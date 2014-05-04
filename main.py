@@ -20,7 +20,7 @@ def mock(backroll=0):
   return model
 
 def pennchr(hid):
-  model = Model(name="pennchr%d" % hid, n_epochs=10000, momentum=0., lr=1)
+  model = Model(name="pennchr%d" % hid, n_epochs=10000, momentum=0.5, lr=0.5)
   params = {'name': 'pennchr', 'unroll': 20, 'backroll': 5}
   model.set_source(ChrSource, params) \
     .attach(FCL, {'out_len': hid, 'hiddens' : ['qqq']}) \
