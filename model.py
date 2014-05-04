@@ -84,7 +84,7 @@ class Model(object):
       if len(epochs) == 0.:
         return 0.
       epoch = max(epochs)
-    fname = "%s/%s_%s" % (dname, self.name, str(epoch))
+    fname = "%s/%s_%.0f" % (dname, self.name, epoch)
     res = ''
     if epoch is None and ask:
       while res != "y" and res != "Y":

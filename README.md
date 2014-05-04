@@ -1,3 +1,7 @@
+Installation
+============
+Install Theano http://deeplearning.net/software/theano/install.html#install , and  then you are ready to start training.
+
 RNN training
 ============
 Call ./main.py model, we support currently models "mock", and "pennchr".
