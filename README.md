@@ -1,6 +1,7 @@
 Installation
 ============
-Install Theano http://deeplearning.net/software/theano/install.html#install , and  then you are ready to start training.
+Please clone bleeding-edge version of Theano from git clone git://github.com/Theano/Theano.git . Set up your
+PYTHONPATH to point to this directory. After it, you are ready to train RNNs.
 
 RNN training
 ============
