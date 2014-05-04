@@ -171,7 +171,7 @@ class Model(object):
       if it % 10 == 2 or epoch == 0:
         elapsed = (time.time() - start) / 60
         data_iters = "epoch=%.0f, it=%d" % (epoch, it)
-        scores = "loss=%f, error=%f, best val perplexity = %f" \
+        scores = "loss=%f, error=%f, best validation perplexity = %f" \
           % (loss, error, min(perplexity))
         print "%s, %s, lr=%f, time elapsed=%.1f min." \
               % (data_iters, scores, lr, elapsed)
