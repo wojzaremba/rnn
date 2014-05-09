@@ -1,0 +1,4 @@
+[global]
+mode=FAST_RUN
+device=cpu
+floatX=float32

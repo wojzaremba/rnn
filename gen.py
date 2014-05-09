@@ -11,7 +11,7 @@ def main():
   exec("from main import %s" % fun)
   model = eval(fun + '()')
   model.source.batch_size = 1
-  model.init(-1, ask=False)
+  model.init(None, ask=False)
   model.gen(text)
 
 if __name__ == '__main__':

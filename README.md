@@ -4,7 +4,8 @@ Please clone bleeding-edge version of Theano
 
     git clone git://github.com/Theano/Theano.git 
     
-Set your PYTHONPATH to point to cloned directory. After it, you are ready to train RNNs.
+Set your PYTHONPATH to point to cloned directory. Copy theanorc to ~/.theanorc. 
+After it, you are ready to train RNNs.
 
 RNN training
 ============
