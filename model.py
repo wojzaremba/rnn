@@ -11,7 +11,7 @@ from layers.layer import ONES
 
 floatX = theano.config.floatX
 class Model(object):
-  def __init__(self, name, lr=0.1, momentum=0.5, threshold=15, n_epochs=2):
+  def __init__(self, name, lr=0.03, momentum=0.9, threshold=2., n_epochs=2):
     print "_" * 100
     print "Creating model %s lr=%f, momentum=%f, n_epochs=%d" % \
       (name, lr, momentum, n_epochs)
@@ -39,28 +39,30 @@ class Model(object):
     prob_t = costs[0].prob
     error_t = T.cast(costs[0].error(y_t), floatX)
     ret = [loss_t, prob_t, error_t]
-    ret = ret + [h['layer'].output for h in self.hiddens.values()]
+    ret = ret + [h['layer'].get_hidden_output(name) for name, h in self.hiddens.iteritems()]
     return ret
 
   def build_model(self):
-    print '\n... building the model with unroll=%d, backroll=%d' \
-      % (self.source.unroll, self.source.backroll)
+    print '\n... building the model with unroll=%d' \
+      % self.source.unroll
     x = T.imatrix('x')
     y = T.imatrix('y')
     reset = T.scalar('reset')
     hiddens = [h['init'] for h in self.hiddens.values()]
     outputs_info = [None] * 3 + hiddens
-    [losses, probs, errors, hids], updates = \
+    ret, updates = \
       theano.scan(self.step, sequences=[x, y], outputs_info=outputs_info)
+    losses, probs, errors = ret[0], ret[1], ret[2]
+    hids = ret[3:]
     loss = losses.sum()
     error = errors.sum() / T.cast((T.neq(y, 255).sum()), floatX)
     hidden_updates_train = []
     hidden_updates_test = []
-    for h in self.hiddens.values():
+    for h, ht in zip(self.hiddens.values(), hids):
       h_train = ifelse(T.eq(reset, 0), \
-        hids[-1-self.source.backroll, :], T.ones_like(h['init']))
+        ht[-1, :], T.ones_like(h['init']))
       h_test = ifelse(T.eq(reset, 0), \
-        hids[-1, :], T.ones_like(h['init']))
+        ht[-1, :], T.ones_like(h['init']))
       hidden_updates_train.append((h['init'], h_train))
       hidden_updates_test.append((h['init'], h_test))
     updates = self.source.get_updates(loss, self.sgd_params)
@@ -114,7 +116,8 @@ class Model(object):
   def init(self, epoch=None, ask=True):
     self.source.rec_final_init()
     self.train_model, self.test_model = self.build_model()
-    self.start_it = self.load(epoch, ask)
+    # XXX
+    self.start_it = 0#self.load(epoch, ask)
 
   def gen(self, text_org=None, threshold=0):
     if self.start_it <= 0:
@@ -216,8 +219,8 @@ class Model(object):
         losses += loss
       if printout:
         print "it=%d, loss=%f, error=%f" % (it, loss, error)
-    losses = log(exp(1), 2) * losses / count
-    perplexity = 2 ** losses
+    losses = losses / count
+    perplexity = np.exp(losses)
     print "perplexity = %f\n" % perplexity
     return perplexity
 

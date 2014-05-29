@@ -3,11 +3,13 @@ import os
 import theano
 import theano.tensor as T
 from theano.ifelse import ifelse
+from theano.tensor.nnet import sigmoid
 from math import floor, ceil
 import conf
 import cPickle
 import urllib
 import os.path
+
 
 floatX = theano.config.floatX
 RANDN = lambda s: 0.001 * np.array(np.random.random(s), dtype=floatX)
@@ -31,12 +33,16 @@ class Layer(object):
       assert model is not None
       self.model = model
 
+  def get_hidden_output(self, _):
+    return self.output
+
   def add_shared(self, name, size, init=RANDN):
     np.random.seed(1)
     W = theano.shared(value=init(size), name=name, borrow=False)
     dW = theano.shared(value=ZEROS(size), name=name, borrow=False)
     self.params.append(W)
     self.dparams.append(dW)
+    return self.params[-1]
 
   def rec_final_init(self):
     self.final_init()
@@ -121,6 +127,55 @@ class Layer(object):
     for l_idx in xrange(len(self.succ)):
       self.succ[l_idx].load(parent_params[l_idx])
 
+class LSTML(Layer):
+  def __init__(self, out_len, prev_layer=None):
+    Layer.__init__(self, prev_layer)
+    in_len = reduce(lambda x, y: x * y, list(self.in_shape)[1:])
+    self.out_len = out_len
+    self.out_shape = (self.in_shape[0], out_len)
+    self.hidden_id = np.random.randint(10000)
+
+    self.add_hidden("h_%d" % self.hidden_id)
+    self.add_hidden("c_%d" % self.hidden_id)
+    self.Wxi = self.add_shared("Wxi", (in_len, out_len))
+    self.Whi = self.add_shared("Whi", (out_len, out_len))
+    self.Wci = self.add_shared("Wci", (out_len, out_len))
+    self.Bi  = self.add_shared("Bi", (self.out_shape[1], ), ZEROS)
+
+    self.Wxf = self.add_shared("Wxf", (in_len, out_len))
+    self.Whf = self.add_shared("Whf", (out_len, out_len))
+    self.Wcf = self.add_shared("Wcf", (out_len, out_len))
+    self.Bf  = self.add_shared("Bf", (self.out_shape[1], ), ZEROS)
+
+    self.Wxc = self.add_shared("Wxc", (in_len, out_len))
+    self.Whc = self.add_shared("Whc", (out_len, out_len))
+    self.Bc  = self.add_shared("Bc", (self.out_shape[1], ), ZEROS)
+
+    self.Wxo = self.add_shared("Wxo", (in_len, out_len))
+    self.Who = self.add_shared("Who", (out_len, out_len))
+    self.Wco = self.add_shared("Wco", (out_len, out_len))
+    self.Bo  = self.add_shared("Bo", (self.out_shape[1], ), ZEROS)
+    self.ct = None
+
+
+  def fp(self, x, _):
+    h = self.model.hiddens["h_%d" % self.hidden_id]['val']
+    c = self.model.hiddens["c_%d" % self.hidden_id]['val']
+    it = sigmoid(T.dot(x, self.Wxi) + T.dot(h, self.Whi) + T.dot(c, self.Wci) + self.Bi)
+    ft = sigmoid(T.dot(x, self.Wxf) + T.dot(h, self.Whf) + T.dot(c, self.Wcf) + self.Bf)
+    self.ct = ft * c + it * T.tanh(T.dot(x, self.Wxc) + T.dot(h, self.Whc) + self.Bc)
+    ot = sigmoid(T.dot(x, self.Wxo) + T.dot(h, self.Who) + T.dot(self.ct, self.Wco) + self.Bo)
+    '''
+    self.output = ot * T.tanh(self.ct)
+    '''
+    self.output = it + ft + ot
+
+  def get_hidden_output(self, name):
+    if name == "h_%d" % self.hidden_id:
+      return self.output
+    if name == "c_%d" % self.hidden_id:
+      return self.ct;
+    assert(0)
 
 class FCL(Layer):
   def __init__(self, out_len, hiddens=None, prev_layer=None):
@@ -129,25 +184,26 @@ class FCL(Layer):
     if hiddens is None:
       hiddens = []
     self.hiddens = hiddens
-    self.add_shared("W", (out_len, in_len))
+    self.W = self.add_shared("W", (out_len, in_len))
     self.out_len = out_len
     self.out_shape = (self.in_shape[0], out_len)
+    self.Wh = None
 
   def final_init(self):
-    for i in xrange(len(self.hiddens)):
-      name = self.hiddens[i]
+    if len(self.hiddens) > 0:
+      name = self.hiddens[0]
       s = self.model.hiddens[name]['layer'].out_shape
-      self.add_shared("W_%s" % name, (s[1], self.out_len))
+      self.Wh = self.add_shared("W_%s" % name, (s[1], self.out_len))
 
   def fp(self, x, _):
     if x.type.dtype == 'int32':
-      self.output = self.params[0][:, x].T
+      self.output = self.W[:, x].T
     else:
-      self.output = T.dot(x, self.params[0].T)
-    for i in xrange(len(self.hiddens)):
-      name = self.hiddens[i]
+      self.output = T.dot(x, self.W.T)
+    if self.Wh is not None:
+      name = self.hiddens[0]
       h = self.model.hiddens[name]['val']
-      self.output += T.dot(h, self.params[i + 1])
+      self.output += T.dot(h, self.Wh)
 
 
 class BiasL(Layer):
@@ -183,37 +239,36 @@ class SigmL(ActL):
     ActL.__init__(self, sigmoid, prev_layer)
 
 class Source(Layer):
-  def __init__(self, model, unroll, backroll):
+  def __init__(self, model, unroll):
     Layer.__init__(self, None, model)
     self.unroll = unroll
-    self.backroll = backroll
 
-  def get_train_data(self, it, backroll):
+  def get_train_data(self, it):
     raise NotImplementedError()
 
-  def get_valid_data(self, it, backroll=0):
-    return self.get_train_data(it, backroll)
+  def get_valid_data(self, it):
+    return self.get_train_data(it)
 
-  def get_test_data(self, it, backroll=0):
-    return self.get_train_data(it, backroll)
+  def get_test_data(self, it):
+    return self.get_train_data(it)
 
   def fp(self, x, _):
     self.output = x
 
-  def split(self, x, backroll):
+  def split(self, x):
     s = int(ceil(float(x.shape[0]-1) / float(self.unroll)))
     xlist = []
     ylist = []
     for i in xrange(s):
-      start = max(i*self.unroll-backroll, 0)
+      start = max(i*self.unroll, 0)
       end = min((i+1)*self.unroll, x.shape[0] - 1)
       xlist.append(x[start:end, :])
       ylist.append(x[(start+1):(end+1), :])
     return zip(xlist, ylist)
 
 class ChrSource(Source):
-  def __init__(self, model, unroll, backroll, name):
-    Source.__init__(self, model, unroll, backroll)
+  def __init__(self, model, unroll, name):
+    Source.__init__(self, model, unroll)
     self.name = name
     self.batch_size = None
     self.training = self.read_file("train.pkl")
@@ -237,37 +292,33 @@ class ChrSource(Source):
     ret = cPickle.load(f)
     return ret
 
-  def get_data(self, data, it, backroll=None):
-    if backroll is None:
-      backroll = self.backroll
+  def get_data(self, data, it):
     s = len(data)
     epoch = int(floor(it/s))
     np.random.seed(epoch)
     it_perm = np.random.permutation(s)[it % s]
     x = data[it_perm]
-    return self.split(x, backroll), epoch, it % len(data) == len(data) - 1
+    return self.split(x), epoch, it % len(data) == len(data) - 1
 
-  def get_train_data(self, it, backroll=None):
-    return self.get_data(self.training, it, backroll)
+  def get_train_data(self, it):
+    return self.get_data(self.training, it)
 
-  def get_valid_data(self, it, backroll=0):
-    return self.get_data(self.valid, it, backroll)
+  def get_valid_data(self, it):
+    return self.get_data(self.valid, it)
 
-  def get_test_data(self, it, backroll=0):
-    return self.get_data(self.test, it, backroll)
+  def get_test_data(self, it):
+    return self.get_data(self.test, it)
 
 class MockSource(Source):
-  def __init__(self, model, batch_size, unroll, backroll, freq, classes):
-    Source.__init__(self, model, unroll, backroll)
+  def __init__(self, model, batch_size, unroll, freq, classes):
+    Source.__init__(self, model, unroll)
     self.batch_size = batch_size
     self.freq = freq
     self.classes = classes
     self.out_shape = (self.batch_size, 256)
     np.random.seed(1)
 
-  def get_train_data(self, it, backroll=None):
-    if backroll is None:
-      backroll = self.backroll
+  def get_train_data(self, it):
     start = np.random.randint(0, 10)
     l = np.random.randint(0, 100) + 100 + 2 * self.unroll
     x = np.zeros(shape=(l, self.batch_size), dtype=np.int32)
@@ -276,13 +327,13 @@ class MockSource(Source):
         x[i, b] = ord('a') + floor((i + b + start) / self.freq) % self.classes
         epoch = floor(it * self.batch_size / 200.)
         last = floor((it + 1) * self.batch_size / 200.) != epoch
-    return self.split(x, backroll), epoch, last
+    return self.split(x), epoch, last
 
-  def get_valid_data(self, it, backroll=0):
-    return self.get_test_data(it, backroll)
+  def get_valid_data(self, it):
+    return self.get_test_data(it)
 
-  def get_test_data(self, it, backroll=0):
-    data, epoch, _ = self.get_train_data(it, backroll)
+  def get_test_data(self, it):
+    data, epoch, _ = self.get_train_data(it)
     return data, epoch, it % 5 == 4
 
 def l2(x):
