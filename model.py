@@ -24,7 +24,6 @@ class Model(object):
     self.test_model = None
     self.start_it = 0
     self.hiddens = {}
-    self.lr = lr
     self.momentum = momentum
     self.threshold = threshold
 
@@ -45,18 +44,20 @@ class Model(object):
     return ret
 
   def get_updates(self, grads):
+    norms = None
+    for (d, dp, g) in grads:
+      if norms is None:
+        norms = T.sum(T.square(g)) 
+      else:
+        norms += T.sum(T.square(g)) 
     updates = []
-    norms_per_bs = T.vector('norms_per_bs')
     for (d, dp, g) in grads:
-      norms_per_bs += T.sum(T.square(g), axis=1)
-    norms = T.sqrt(T.sum(norms_per_bs))
-    for (d, dp, g) in grads:
-      g *= ifelse(T.lt(norms_per_bs, threshold), 1., threshold / norms_per_bs)
+      g *= ifelse(T.lt(norms, self.threshold), 1., self.threshold / norms)
       if self.momentum > 0:
         g = self.momentum * dp + (1 - self.momentum) * g
-        updates.append((dp, grad))
+        updates.append((dp, g))
       updates.append((d, d - self.lr * g))        
-    return updates, norms
+    return updates, T.sum(norms)
 
   def build_model(self):
     print '\n... building the model with unroll=%d' \
@@ -81,8 +82,8 @@ class Model(object):
         ht[-1, :], T.ones_like(h['init']))
       hidden_updates_train.append((h['init'], h_train))
       hidden_updates_test.append((h['init'], h_test))
-    grads = self.source.get_grads(loss)
-    updates, norms = self.get_updates(grads)
+    gradients = self.source.get_grads(loss)
+    updates, norms = self.get_updates(gradients)
     updates += hidden_updates_train
     rets = [loss, probs[-1, :], error, norms]
     mode = theano.Mode(linker='cvm')
@@ -153,7 +154,7 @@ class Model(object):
       text = text_org
       rets = self.test_model(x, y, 0)
       for i in xrange(50):
-        _, probs, _, _ = rets[0:4]
+        _, probs, _ = rets[0:3]
         p = [0]
         for i in xrange(probs.shape[1]):
           p.append(p[-1] + max(probs[0, i] - threshold, 0))
@@ -192,7 +193,7 @@ class Model(object):
         wps = (it * self.source.batch_size * self.source.unroll) / (elapsed * 60.)
         scores = "loss=%f, error=%f, best validation perplexity = %f" \
           % (loss, error, min(perplexity))
-        print "%s, %s, lr=%f, time elapsed=%.1f min., norms = %f, words per sec = %.0f" \
+        print "%s, %s, lr=%f, time elapsed=%.1f min., norms = %s, words per sec = %.0f" \
               % (data_iters, scores, lr, elapsed, norms, wps)
       if time.time() - last_save > 60 * 10 or time.time() - begin > 2 * 60 or epoch >= self.n_epochs:
         begin = float("inf")
