@@ -5,8 +5,8 @@ from math import ceil
 
 sets = ['train', 'valid', 'test']
 for name in sets:
-  fname = "/Users/wojto/data/pennchr/" + name
-  with open(fname + ".txt") as f: 
+  fname = "/usr/local/google/home/wojciechz/data/pennchr/" 
+  with open(fname + "ptb.char." + name + ".txt") as f: 
     text = f.readlines()
 
   print len(text)
@@ -21,7 +21,7 @@ for name in sets:
   bs = 10
   for mb in xrange(int(ceil(len(text) / bs))):
     subord = order[mb*bs:min((mb+1)*bs, len(text))]
-    x = 255 * np.ones((subord[-1][0] / 2, len(subord)), dtype=np.uint8)
+    x = np.zeros((subord[-1][0] / 2, len(subord)), dtype=np.uint8)
     for i in xrange(len(subord)):
       for j in xrange(subord[i][0] / 2):
         c = text[subord[i][1]][2 * j + 1]
@@ -30,4 +30,4 @@ for name in sets:
         x[j, i] = ord(c)
     data.append(x)
 
-  cPickle.dump(data, open(fname + ".pkl", "wb" ))
+  cPickle.dump(data, open(fname + name + ".pkl", "wb" ))

@@ -11,20 +11,22 @@ from layers.layer import ONES
 
 floatX = theano.config.floatX
 class Model(object):
-  def __init__(self, name, lr=0.03, momentum=0.9, threshold=2., n_epochs=2):
+  def __init__(self, name, lr=1., momentum=0.9, threshold=20., n_epochs=2):
     print "_" * 100
     print "Creating model %s lr=%f, momentum=%f, n_epochs=%d" % \
       (name, lr, momentum, n_epochs)
     self.name = name
     self.lr = T.scalar('lr')
     self.lr_val = float(lr)
-    self.sgd_params = (self.lr, momentum, threshold)
     self.n_epochs = n_epochs
     self.source = None
     self.train_model = None
     self.test_model = None
     self.start_it = 0
     self.hiddens = {}
+    self.lr = lr
+    self.momentum = momentum
+    self.threshold = threshold
 
   def set_source(self, source, params):
     params['model'] = self
@@ -41,6 +43,20 @@ class Model(object):
     ret = [loss_t, prob_t, error_t]
     ret = ret + [h['layer'].get_hidden_output(name) for name, h in self.hiddens.iteritems()]
     return ret
+
+  def get_updates(self, grads):
+    updates = []
+    norms_per_bs = T.vector('norms_per_bs')
+    for (d, dp, g) in grads:
+      norms_per_bs += T.sum(T.square(g), axis=1)
+    norms = T.sqrt(T.sum(norms_per_bs))
+    for (d, dp, g) in grads:
+      g *= ifelse(T.lt(norms_per_bs, threshold), 1., threshold / norms_per_bs)
+      if self.momentum > 0:
+        g = self.momentum * dp + (1 - self.momentum) * g
+        updates.append((dp, grad))
+      updates.append((d, d - self.lr * g))        
+    return updates, norms
 
   def build_model(self):
     print '\n... building the model with unroll=%d' \
@@ -65,9 +81,10 @@ class Model(object):
         ht[-1, :], T.ones_like(h['init']))
       hidden_updates_train.append((h['init'], h_train))
       hidden_updates_test.append((h['init'], h_test))
-    updates = self.source.get_updates(loss, self.sgd_params)
+    grads = self.source.get_grads(loss)
+    updates, norms = self.get_updates(grads)
     updates += hidden_updates_train
-    rets = [loss, probs[-1, :], error]
+    rets = [loss, probs[-1, :], error, norms]
     mode = theano.Mode(linker='cvm')
     train_model = theano.function([x, y, reset, self.lr], rets, \
       updates=updates, mode=mode)
@@ -136,7 +153,7 @@ class Model(object):
       text = text_org
       rets = self.test_model(x, y, 0)
       for i in xrange(50):
-        _, probs, _ = rets[0:3]
+        _, probs, _, _ = rets[0:4]
         p = [0]
         for i in xrange(probs.shape[1]):
           p.append(p[-1] + max(probs[0, i] - threshold, 0))
@@ -160,38 +177,38 @@ class Model(object):
     print '... training the model'
     start = time.time()
     last_save = start
+    begin = start
     it = self.start_it
     lr = self.lr_val / self.source.batch_size
     perplexity = [float('Inf')]
     while True:
-      data, epoch, last = self.source.get_train_data(it)
-      if epoch >= self.n_epochs:
-        break
-      for i, (x, y) in enumerate(data):
-        reset = i == len(data) - 1
+      data, epoch, _ = self.source.get_train_data(it)
+      for (x, y, reset) in data:
         rets = self.train_model(x, y, reset, lr)
-        loss, _, error = rets[0:3]
-      if it % 10 == 2 or epoch == 0:
+        loss, _, error, norms = rets[0:4]
+      if it % 20 == 2:
         elapsed = (time.time() - start) / 60
         data_iters = "epoch=%.0f, it=%d" % (epoch, it)
+        wps = (it * self.source.batch_size * self.source.unroll) / (elapsed * 60.)
         scores = "loss=%f, error=%f, best validation perplexity = %f" \
           % (loss, error, min(perplexity))
-        print "%s, %s, lr=%f, time elapsed=%.1f min." \
-              % (data_iters, scores, lr, elapsed)
-      if time.time() - last_save > 60 * 20:
+        print "%s, %s, lr=%f, time elapsed=%.1f min., norms = %f, words per sec = %.0f" \
+              % (data_iters, scores, lr, elapsed, norms, wps)
+      if time.time() - last_save > 60 * 10 or time.time() - begin > 2 * 60 or epoch >= self.n_epochs:
+        begin = float("inf")
         last_save = time.time()
         self.save(it)
-      it += 1
-      if last:
         perplexity.append(self.test(self.source.get_valid_data, False))
         if perplexity[-1] > min(perplexity):
           lr /= 2
         else:
           self.save(float('inf'))
         lp = len(perplexity)
-        if (lp > 3 and min(perplexity[-3:]) > min(perplexity) * 1.005) or \
-           (lp > 10 and min(perplexity[-10:]) > min(perplexity)):
+        if (lp > 3 and min(perplexity[-3:]) > min(perplexity) * 1.005) or (lp > 10 and min(perplexity[-10:]) > min(perplexity)) or epoch >= self.n_epochs:
           break
+      if epoch >= self.n_epochs:
+        break
+      it += 1
     self.start_it = it
     self.save(it)
     self.load(float('inf'), False) # Loading model with the best perplexity.
@@ -210,10 +227,9 @@ class Model(object):
     it = 0
     while not last:
       data, _, last = data_source(it)
-      it += 1
-      for i, (x, y) in enumerate(data):
-        reset = i == len(data) - 1
-        count += np.sum(y != 255)
+      for x, y, reset in data:
+        it += 1
+        count += y.shape[0]
         rets = self.test_model(x, y, reset)
         loss, _, error = rets[0:3]
         losses += loss

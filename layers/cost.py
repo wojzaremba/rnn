@@ -11,7 +11,7 @@ class Cost(Layer):
 
   def error(self, y):
     pred =  T.argmax(self.prob, axis=1)
-    return T.sum((T.neq(pred, y)) * T.neq(y, 255))
+    return T.sum(T.neq(pred, y))
 
 class SoftmaxC(Cost):
   def __init__(self, prev_layer=None):
@@ -20,6 +20,5 @@ class SoftmaxC(Cost):
 
   def fp(self, x, y):
     self.prob = T.nnet.softmax(x)
-    output = -T.mean(T.log(self.prob)[T.arange(y.shape[0]), y])
-    self.output = T.sum(T.neq(y, 255) * output)
+    self.output = -T.sum(T.mean(T.log(self.prob)[T.arange(y.shape[0]), y]))
 
